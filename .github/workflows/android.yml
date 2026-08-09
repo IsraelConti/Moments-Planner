@@ -15,8 +15,27 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 35
     steps:
-      - name: Checkout
+      - name: Checkout Moments Planner
         uses: actions/checkout@v4
+      - name: Restore original Moments Planner web sources
+        uses: actions/checkout@v4
+        with:
+          repository: IsraelConti/ToolStock-Pro
+          ref: wedding-events-planner
+          path: _source
+          sparse-checkout: |
+            src
+      - name: Copy application sources
+        run: |
+          mkdir -p src
+          cp -f _source/src/index.html src/index.html
+          cp -f _source/src/app.js src/app.js
+          cp -f _source/src/styles.css src/styles.css
+          if [ -f _source/src/app-icon.b64 ]; then cp -f _source/src/app-icon.b64 src/app-icon.b64; fi
+          rm -rf _source
+          test -s src/index.html
+          test -s src/app.js
+          test -s src/styles.css
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
