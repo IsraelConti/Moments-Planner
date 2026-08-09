@@ -21,9 +21,8 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
       - name: Install web dependencies
-        run: npm ci
+        run: npm install --no-audit --no-fund
       - name: Build embedded application
         run: |
           base64 --decode src/app-icon.b64 > src/app-icon.png
