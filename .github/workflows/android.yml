@@ -1,0 +1,65 @@
+name: Build Moments Planner Android
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install web dependencies
+        run: npm ci
+      - name: Build embedded application
+        run: |
+          base64 --decode src/app-icon.b64 > src/app-icon.png
+          npm run build
+          mkdir -p android/app/src/main/assets
+          cp -f dist/* android/app/src/main/assets/
+          for density in mdpi hdpi xhdpi xxhdpi xxxhdpi; do
+            mkdir -p "android/app/src/main/res/mipmap-$density"
+            cp -f src/app-icon.png "android/app/src/main/res/mipmap-$density/ic_launcher.png"
+            cp -f src/app-icon.png "android/app/src/main/res/mipmap-$density/ic_launcher_round.png"
+          done
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+      - name: Install Android API 36
+        run: sdkmanager "platforms;android-36" "build-tools;36.0.0"
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.13"
+      - name: Compile debug APK and release bundle
+        working-directory: android
+        run: gradle --no-daemon clean assembleDebug bundleRelease
+      - name: Upload installable APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Moments-Planner-APK
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+      - name: Upload unsigned Play Store bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: Moments-Planner-AAB-unsigned
+          path: android/app/build/outputs/bundle/release/app-release.aab
+          if-no-files-found: error
