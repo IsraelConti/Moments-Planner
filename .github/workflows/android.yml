@@ -36,21 +36,8 @@ jobs:
           test -s src/index.html
           test -s src/app.js
           test -s src/styles.css
-      - name: Add editable guest attendance and table assignment
-        run: |
-          python3 - <<'PY'
-          from pathlib import Path
-          p=Path('src/app.js')
-          s=p.read_text()
-          old='''<select data-guest-table="'+g.id+'">'+tableOptions(p,g.tableId)+'</select></div><span class="badge '+esc(g.status)+'">'+(g.status==="confirmed"?"Confirmado":g.status==="declined"?"No asistirá":"Pendiente")+'</span>'''
-          new='''<label><small>Asistencia</small><select data-guest-status="'+g.id+'"><option value="pending" '+(g.status==="pending"?"selected":"")+'>Pendiente</option><option value="confirmed" '+(g.status==="confirmed"?"selected":"")+'>Sí asistirá</option><option value="declined" '+(g.status==="declined"?"selected":"")+'>No asistirá</option></select></label><label><small>Mesa</small><select data-guest-table="'+g.id+'" '+(g.status==="declined"?"disabled":"")+'>'+tableOptions(p,g.tableId)+'</select></label></div><span class="badge '+esc(g.status)+'">'+(g.status==="confirmed"?"Confirmado":g.status==="declined"?"No asistirá":"Pendiente")+'</span>'''
-          if old not in s: raise SystemExit('guest card marker not found')
-          s=s.replace(old,new,1)
-          old2='''$$("[data-guest-table]").forEach(s=>s.onchange=()=>{const g=p.guests.find(x=>x.id===s.dataset.guestTable);if(g){g.tableId=s.value;save();toast("Mesa asignada");}});'''
-          new2='''$$("[data-guest-status]").forEach(s=>s.onchange=()=>{const g=p.guests.find(x=>x.id===s.dataset.guestStatus);if(g){g.status=s.value;if(g.status==="declined")g.tableId="";save();toast(g.status==="confirmed"?"Asistencia confirmada":g.status==="declined"?"Marcado como no asistirá":"Invitado pendiente");}});\n  $$("[data-guest-table]").forEach(s=>s.onchange=()=>{const g=p.guests.find(x=>x.id===s.dataset.guestTable);if(g){g.tableId=s.value;save();toast("Mesa asignada");}});'''
-          if old2 not in s: raise SystemExit('guest table handler marker not found')
-          p.write_text(s.replace(old2,new2,1))
-          PY
+      - name: Apply Moments Expert professional enhancements
+        run: node scripts/enhance-moments.mjs
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
