@@ -1,0 +1,1 @@
+-keepclassmembers class com.momentsplanner.events.MainActivity$AndroidBridge { *; }
