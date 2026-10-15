@@ -1,3 +1,10 @@
 {
-  "name":"Moments Planner — Bodas y Eventos","short_name":"Moments","description":"Planificador profesional de bodas y eventos","start_url":".","display":"standalone","background_color":"#21142f","theme_color":"#21142f","icons":[{"src":"app-icon.png","sizes":"512x512","type":"image/png","purpose":"any maskable"}]
+  "name": "Moments Planner — Bodas y Eventos",
+  "short_name": "Moments",
+  "description": "Planificador profesional de bodas y eventos",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#21142f",
+  "theme_color": "#21142f",
+  "icons": [{"src":"app-icon.png","sizes":"512x512","type":"image/png","purpose":"any maskable"}]
 }
