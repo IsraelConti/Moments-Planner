@@ -42,20 +42,45 @@ function downloadBlob(content,type,name){
 }
 
 window.onMomentsOffer=(price,hasTrial)=>{
+  if(!price){window.onMomentsOfferUnavailable("El plan no está disponible en Google Play. Inténtalo más tarde.");return;}
   $("#planHeadline").textContent=hasTrial?"3 días gratis":"Suscripción mensual";
   $("#subscriptionPrice").textContent=hasTrial?"Después, "+price+" al mes":price+" al mes";
   $("#subscriptionTerms").textContent=hasTrial?"Después se renueva automáticamente cada mes. Cancela durante la prueba desde Google Play y no se realizará ningún cobro.":"Se renueva automáticamente cada mes y puedes cancelar desde Google Play.";
   $("#subscribeBtn").textContent=hasTrial?"Probar 3 días gratis":"Suscribirme por "+price+" al mes";
+  $("#subscribeBtn").disabled=false;
+  $("#paywallStatus").textContent=hasTrial?"Google Play ofrece una prueba gratuita de 3 días y después "+price+" al mes.":"Precio de Google Play: "+price+" al mes.";
+};
+window.onMomentsOfferUnavailable=message=>{
+  $("#planHeadline").textContent="Suscripción no disponible";
+  $("#subscriptionPrice").textContent="No hay precio disponible";
+  $("#subscriptionTerms").textContent="No se puede iniciar una compra hasta que Google Play devuelva un precio y unas condiciones válidas.";
+  $("#subscribeBtn").disabled=true;
+  $("#paywallStatus").textContent=message||"No se pudo consultar el producto en Google Play.";
 };
 window.onMomentsSubscription=(active,price,message)=>{
   if(price)window.onMomentsOffer(price,false);
   $("#subscriptionStatus").textContent=active?"Suscripción mensual activa":(message||"Suscripción necesaria");
   $("#paywall").classList.toggle("hidden",!!active);
+  if(!active&&!price)$("#paywallStatus").textContent=message||"Se necesita una suscripción activa para usar Moments Planner.";
 };
-window.onMomentsPurchaseError=message=>toast(message||"No se pudo completar la operación con Google Play");
+window.onMomentsPurchaseError=message=>{
+  const text=message||"No se pudo completar la operación con Google Play";
+  $("#paywallStatus").textContent=text;
+  toast(text);
+};
 window.onMomentsFileSaved=(success,name)=>toast(success?"Archivo guardado: "+name:"No se pudo guardar el archivo");
-$("#subscribeBtn").onclick=()=>android()?.subscribeMonthly?android().subscribeMonthly():toast("La suscripción se activa desde Google Play");
-$("#restorePurchase").onclick=()=>android()?.restorePurchases?android().restorePurchases():toast("Abre la app instalada desde Google Play");
+$("#subscribeBtn").onclick=()=>{
+  if($("#subscribeBtn").disabled)return;
+  if(android()?.subscribeMonthly)android().subscribeMonthly();
+  else {$("#paywallStatus").textContent="La compra solo está disponible en la aplicación Android de Google Play.";toast("Instala Moments Planner desde Google Play para suscribirte");}
+};
+$("#restorePurchase").onclick=()=>{
+  if(android()?.restorePurchases)android().restorePurchases();
+  else {$("#paywallStatus").textContent="La restauración de compras solo está disponible en Android.";toast("Abre Moments Planner en Android para restaurar la compra");}
+};
+const exitApp=()=>android()?.exitApp?android().exitApp():toast("Cierra Moments Planner para salir");
+$("#closePaywall").onclick=exitApp;
+$("#exitPaywall").onclick=exitApp;
 $("#manageSubscription").onclick=()=>android()?.manageSubscription?android().manageSubscription():toast("Gestiona la suscripción desde Google Play");
 
 function go(screen,push=true){
@@ -405,4 +430,7 @@ function renderAll(){
 }
 
 applySettings();save();go("home",false);
-if(android()?.checkSubscription){android().checkSubscription();}else{window.onMomentsOffer("4,99 €",true);$("#paywall").classList.remove("hidden");}
+$("#paywall").classList.remove("hidden");
+window.onMomentsOfferUnavailable("Comprueba la suscripción en Google Play.");
+if(android()?.checkSubscription)android().checkSubscription();
+else $("#paywallStatus").textContent="La suscripción se puede comprobar al abrir esta aplicación desde Google Play.";
