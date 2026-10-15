@@ -17,25 +17,12 @@ jobs:
     steps:
       - name: Checkout Moments Planner
         uses: actions/checkout@v4
-      - name: Restore original Moments Planner web sources
-        uses: actions/checkout@v4
-        with:
-          repository: IsraelConti/ToolStock-Pro
-          ref: wedding-events-planner
-          path: _source
-          sparse-checkout: |
-            src
-      - name: Copy application sources
+      - name: Validate self-contained Moments Planner sources
         run: |
-          mkdir -p src
-          cp -f _source/src/index.html src/index.html
-          cp -f _source/src/app.js src/app.js
-          cp -f _source/src/styles.css src/styles.css
-          if [ -f _source/src/app-icon.b64 ]; then cp -f _source/src/app-icon.b64 src/app-icon.b64; fi
-          rm -rf _source
           test -s src/index.html
           test -s src/app.js
           test -s src/styles.css
+          test -s src/app-icon.b64
       - name: Apply Moments Expert professional enhancements
         run: node scripts/enhance-moments.mjs
       - name: Setup Node
@@ -77,9 +64,9 @@ jobs:
           name: Moments-Planner-APK
           path: android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
-      - name: Upload unsigned Play Store bundle
+      - name: Upload release bundle for review
         uses: actions/upload-artifact@v4
         with:
-          name: Moments-Planner-AAB-unsigned
+          name: Moments-Planner-AAB
           path: android/app/build/outputs/bundle/release/app-release.aab
           if-no-files-found: error
