@@ -68,7 +68,7 @@ if(!calendarDownload.suggestedFilename().endsWith('.ics'))throw Error('El calend
 const excelPromise=page.waitForEvent('download',{timeout:15000});
 await page.locator('#exportFull').evaluate(el=>el.click());
 const excelDownload=await excelPromise;
-if(!/\\.xlsx?$/i.test(excelDownload.suggestedFilename()))throw Error('El informe no descarga Excel: '+excelDownload.suggestedFilename());
+if(!/\.xlsx?$/i.test(excelDownload.suggestedFilename()))throw Error('El informe no descarga Excel: '+excelDownload.suggestedFilename());
 await page.evaluate(()=>document.querySelector('[data-go="settings"]').click());
 const backupPromise=page.waitForEvent('download',{timeout:10000});
 await page.locator('#backupData').evaluate(el=>el.click());
