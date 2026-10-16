@@ -61,15 +61,18 @@ for(const screen of ['invitation','reports']){
   if(await page.locator('.screen.active').getAttribute('data-screen')!==screen)throw Error('No abre '+screen);
 }
 // Exercise real export buttons and validate downloaded content.
+const calendarPromise=page.waitForEvent('download',{timeout:10000});
 await page.locator('#downloadCalendar').evaluate(el=>el.click());
-const calendarDownload=await page.waitForEvent('download',{timeout:10000});
+const calendarDownload=await calendarPromise;
 if(!calendarDownload.suggestedFilename().endsWith('.ics'))throw Error('El calendario no descarga un archivo ICS');
+const excelPromise=page.waitForEvent('download',{timeout:15000});
 await page.locator('#exportFull').evaluate(el=>el.click());
-const excelDownload=await page.waitForEvent('download',{timeout:15000});
-if(!/\\.xlsx?$/i.test(excelDownload.suggestedFilename()))throw Error('El informe no descarga Excel');
+const excelDownload=await excelPromise;
+if(!/\\.xlsx?$/i.test(excelDownload.suggestedFilename()))throw Error('El informe no descarga Excel: '+excelDownload.suggestedFilename());
 await page.evaluate(()=>document.querySelector('[data-go="settings"]').click());
+const backupPromise=page.waitForEvent('download',{timeout:10000});
 await page.locator('#backupData').evaluate(el=>el.click());
-const backupDownload=await page.waitForEvent('download',{timeout:10000});
+const backupDownload=await backupPromise;
 if(!backupDownload.suggestedFilename().endsWith('.json'))throw Error('La copia de seguridad no descarga JSON');
 const destinations=await page.locator('[data-go]').evaluateAll(els=>[...new Set(els.map(e=>e.dataset.go).filter(Boolean))]);
 const visited=[];
