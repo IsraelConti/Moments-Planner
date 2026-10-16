@@ -76,6 +76,18 @@ for(const screen of ['invitation','reports']){
   await page.evaluate(target=>document.querySelector('[data-go="'+target+'"]').click(),screen);
   if(await page.locator('.screen.active').getAttribute('data-screen')!==screen)throw Error('No abre '+screen);
 }
+// QR generation must produce a real PNG, not just a visible download button.
+await page.evaluate(()=>document.querySelector('[data-go="invitation"]').click());
+await page.waitForFunction(()=>document.querySelector('#projectQr')?.getAttribute('src')?.startsWith('data:image/png;base64,'),{timeout:15000});
+const qrData=await page.locator('#projectQr').getAttribute('src');
+if(!qrData||qrData.length<200)throw Error('El QR de la invitación no contiene imagen PNG');
+const qrPromise=page.waitForEvent('download',{timeout:10000});
+await page.locator('#downloadQr').click();
+const qrDownload=await qrPromise;
+if(!qrDownload.suggestedFilename().endsWith('.png'))throw Error('La descarga del QR no es PNG');
+const qrBytes=await (await import('node:fs/promises')).readFile(await qrDownload.path());
+if(qrBytes.length<100||qrBytes.subarray(0,8).toString('hex')!=='89504e470d0a1a0a')throw Error('El archivo QR descargado no es un PNG válido');
+await page.evaluate(()=>document.querySelector('[data-go="reports"]').click());
 // Exercise real export buttons and validate downloaded content.
 const calendarPromise=page.waitForEvent('download',{timeout:10000});
 await page.locator('#downloadCalendar').evaluate(el=>el.click());
