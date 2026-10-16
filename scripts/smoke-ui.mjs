@@ -30,6 +30,18 @@ await page.reload();
 await page.evaluate(()=>window.onMomentsSubscription(true,'','Suscripción de prueba'));
 await page.locator('[data-open]').first().click();
 if(await page.locator('.screen.active').getAttribute('data-screen')!=='dashboard')throw Error('El proyecto no persiste tras recargar');
+// Exercise actual forms and persisted project records, not only navigation.
+for(const [screen,form,fields,list,needle] of [
+  ['guests','guestForm',{name:'Invitado de prueba'},'guestList','Invitado de prueba'],
+  ['tasks','taskForm',{title:'Tarea de prueba',dueDate:'2027-06-01'},'taskList','Tarea de prueba'],
+  ['budget','expenseForm',{concept:'Gasto de prueba',amount:'125'},'expenseList','Gasto de prueba']
+]){
+  await page.evaluate(target=>document.querySelector('[data-go="'+target+'"]').click(),screen);
+  if(await page.locator('.screen.active').getAttribute('data-screen')!==screen)throw Error('No abre '+screen);
+  for(const [name,value] of Object.entries(fields))await page.locator('#'+form+' [name="'+name+'"]').fill(value);
+  await page.locator('#'+form+' button').first().click();
+  if(!(await page.locator('#'+list).innerText()).includes(needle))throw Error('No se agregó '+needle);
+}
 const destinations=await page.locator('[data-go]').evaluateAll(els=>[...new Set(els.map(e=>e.dataset.go).filter(Boolean))]);
 const visited=[];
 for(const screen of destinations){
