@@ -25,6 +25,11 @@ await page.evaluate(()=>{window.__billingCalls=[];window.MomentsAndroid.subscrib
 const paywallButtons=await page.locator('#paywall button').evaluateAll(els=>els.map(e=>({id:e.id,text:e.textContent.trim()})));
 console.log('Paywall buttons:',JSON.stringify(paywallButtons));
 // Check every paywall action using the real DOM handlers and a mocked native bridge.
+await page.evaluate(()=>window.onMomentsOffer('4,99 €',true));
+await page.evaluate(()=>window.onMomentsSubscription(false,'US$9.99','Suscripción pendiente'));
+if(!(await page.locator('#planHeadline').innerText()).includes('3 días'))throw Error('Estado de suscripción eliminó la prueba ofrecida por Play');
+if(!(await page.locator('#subscriptionPrice').innerText()).includes('4,99 €'))throw Error('Estado de suscripción reemplazó el precio localizado de Play');
+if((await page.locator('#subscriptionPrice').innerText()).includes('US$9.99'))throw Error('Moneda de estado reemplazó la oferta de Play');
 await page.evaluate(()=>window.onMomentsOffer('4,99 €',false));
 if(await page.locator('#subscribeBtn').isDisabled())throw Error('Suscribirme no se habilita cuando existe una oferta');
 await page.locator('#subscribeBtn').click();
