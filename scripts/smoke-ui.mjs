@@ -98,6 +98,7 @@ await page.evaluate(()=>document.querySelector('[data-go="tasks"]').click());
 if(await page.locator('#taskForm').evaluate(f=>!!f.dataset.editingId))throw Error('La edición pendiente no se canceló al navegar');
 const tasksBeforeNew=await page.locator('#taskList [data-edit-item]').count();
 await page.locator('#taskForm [name="title"]').fill('Nueva tarea después de cancelar');
+await page.locator('#taskForm [name="dueDate"]').fill('2027-06-02');
 await page.locator('#taskForm button').first().click();
 if(await page.locator('#taskList [data-edit-item]').count()!==tasksBeforeNew+1)throw Error('Guardar después de cancelar no creó una nueva tarea');
 if(!(await page.locator('#taskList').innerText()).includes('Tarea editada'))throw Error('Se perdió la tarea original');
