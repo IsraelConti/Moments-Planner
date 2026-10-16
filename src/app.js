@@ -8,13 +8,15 @@ const defaultSettings={appName:"Moments Planner",companyName:"",language:"es",cu
 const readJson=(key,fallback)=>{try{return JSON.parse(localStorage.getItem(key)||JSON.stringify(fallback));}catch{return fallback;}};
 const blankCollections=()=>({guests:[],tasks:[],expenses:[],vendors:[],schedule:[],tables:[]});
 function normalizeProject(p){
+  if(!p||typeof p!=="object"||Array.isArray(p))p={};
   const collections=blankCollections();
   Object.keys(collections).forEach(k=>collections[k]=Array.isArray(p?.[k])?p[k]:[]);
   collections.guests=collections.guests.map(g=>({...g,seats:Number(g.seats||1),tableId:g.tableId||""}));
   return {...p,...collections,contingency:{planB:"",transport:"",emergencyContact:"",accessibility:"",operations:"",...(p?.contingency||{})}};
 }
 let projects=(Array.isArray(localStorage.getItem(KEY)?readJson(KEY,[]):readJson(OLD_KEY,[]))?(localStorage.getItem(KEY)?readJson(KEY,[]):readJson(OLD_KEY,[])):[]).map(normalizeProject);
-let settings={...defaultSettings,...(localStorage.getItem(SETTINGS)?readJson(SETTINGS,defaultSettings):readJson(OLD_SETTINGS,defaultSettings))};
+const storedSettings=localStorage.getItem(SETTINGS)?readJson(SETTINGS,defaultSettings):readJson(OLD_SETTINGS,defaultSettings);
+let settings={...defaultSettings,...(storedSettings&&typeof storedSettings==="object"&&!Array.isArray(storedSettings)?storedSettings:{})};
 let currentId=localStorage.getItem("moments.current")||"";
 let currentScreen="home", historyStack=[];
 const titles={home:"Bodas y eventos",projectForm:"Nuevo proyecto",dashboard:"Panel del proyecto",guests:"Invitados",tasks:"Tareas y fechas",budget:"Presupuesto",vendors:"Proveedores",schedule:"Agenda del día",tables:"Mesas",contingency:"Plan B y seguridad",assistant:"Moments IA",invitation:"Invitación y QR",reports:"Informes",help:"Información y ayuda",settings:"Configuración"};
