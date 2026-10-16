@@ -19,7 +19,7 @@ let projects=(Array.isArray(storedProjects)?storedProjects:[]).map(normalizeProj
 const storedSettings=localStorage.getItem(SETTINGS)?readJson(SETTINGS,defaultSettings):readJson(OLD_SETTINGS,defaultSettings);
 let settings={...defaultSettings,...(storedSettings&&typeof storedSettings==="object"&&!Array.isArray(storedSettings)?storedSettings:{})};
 let currentId=localStorage.getItem("moments.current")||"";
-let currentScreen="home", historyStack=[];
+let currentScreen="home", historyStack=[], editingProjectId=null;
 const titles={home:"Bodas y eventos",projectForm:"Nuevo proyecto",dashboard:"Panel del proyecto",guests:"Invitados",tasks:"Tareas y fechas",budget:"Presupuesto",vendors:"Proveedores",schedule:"Agenda del día",tables:"Mesas",contingency:"Plan B y seguridad",assistant:"Moments IA",invitation:"Invitación y QR",reports:"Informes",help:"Información y ayuda",settings:"Configuración"};
 const current=()=>projects.find(p=>p.id===currentId);
 const uid=()=>globalThis.crypto?.randomUUID?.()||("id-"+Date.now()+"-"+Math.random().toString(16).slice(2));
@@ -104,17 +104,30 @@ window.onAndroidBack=()=>{if(currentScreen==="home")return false;back();return t
 
 $$("[data-new-project]").forEach(b=>b.addEventListener("click",()=>{
   const type=b.dataset.newProject;
-  $("#projectForm").reset();$("#projectForm [name=type]").value=type;
+  editingProjectId=null;$("#projectForm").reset();$("#projectForm [name=type]").value=type;
   $("#projectFormTitle").textContent=type==="wedding"?"Nueva boda":"Nuevo evento";
   $("#projectEyebrow").textContent=type==="wedding"?"PLANIFICADOR DE BODAS":"ORGANIZADOR DE EVENTOS";
   $("#weddingCoupleField").classList.toggle("hidden",type!=="wedding");
   $("#eventTypeField").classList.toggle("hidden",type!=="event");
   go("projectForm");
 }));
+$("#editProject").onclick=()=>{
+  const p=current();if(!p)return;
+  editingProjectId=p.id;
+  const form=$("#projectForm");form.reset();
+  for(const el of form.elements){if(el.name&&Object.prototype.hasOwnProperty.call(p,el.name))el.value=p[el.name]??"";}
+  $("#projectFormTitle").textContent="Editar proyecto";
+  $("#projectEyebrow").textContent="ACTUALIZAR DATOS";
+  $("#weddingCoupleField").classList.toggle("hidden",p.type!=="wedding");
+  $("#eventTypeField").classList.toggle("hidden",p.type!=="event");
+  go("projectForm");
+};
 $("#projectForm").addEventListener("submit",e=>{
   e.preventDefault();const data=Object.fromEntries(new FormData(e.currentTarget));
-  const project=normalizeProject({...data,id:uid(),createdAt:new Date().toISOString()});
-  projects.unshift(project);currentId=project.id;localStorage.setItem("moments.current",currentId);save();historyStack=["home"];go("dashboard",false);toast(project.type==="wedding"?"Boda creada":"Evento creado");
+  const existing=editingProjectId?projects.find(p=>p.id===editingProjectId):null;
+  const project=normalizeProject(existing?{...existing,...data}:{...data,id:uid(),createdAt:new Date().toISOString()});
+  if(existing){projects=projects.map(p=>p.id===existing.id?project:p);}else{projects.unshift(project);}
+  editingProjectId=null;currentId=project.id;localStorage.setItem("moments.current",currentId);save();historyStack=["home"];go("dashboard",false);toast(existing?"Proyecto actualizado":project.type==="wedding"?"Boda creada":"Evento creado");
 });
 
 function projectSeats(p,status){
