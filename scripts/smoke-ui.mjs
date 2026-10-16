@@ -13,6 +13,8 @@ await page.addInitScript(()=>{
   };
 });
 await page.goto(pathToFileURL(resolve('dist/index.html')).href);
+await page.waitForFunction(()=>typeof window.onMomentsSubscription==='function',{timeout:10000});
+await page.evaluate(()=>window.onMomentsSubscription(true,'','Suscripción de prueba'));
 await page.waitForTimeout(500);
 if(errors.length)throw Error('Errores JS al arrancar: '+errors.join('; '));
 if(await page.locator('#paywall').isVisible())throw Error('La suscripción simulada no desbloqueó la interfaz');
