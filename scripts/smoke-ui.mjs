@@ -96,9 +96,10 @@ await page.locator('#taskForm [name="title"]').fill('Cambio no guardado');
 await page.evaluate(()=>document.querySelector('[data-go="guests"]').click());
 await page.evaluate(()=>document.querySelector('[data-go="tasks"]').click());
 if(await page.locator('#taskForm').evaluate(f=>!!f.dataset.editingId))throw Error('La edición pendiente no se canceló al navegar');
+const tasksBeforeNew=await page.locator('#taskList [data-edit-item]').count();
 await page.locator('#taskForm [name="title"]').fill('Nueva tarea después de cancelar');
 await page.locator('#taskForm button').first().click();
-if(await page.locator('#taskList [data-edit-item]').count()!==2)throw Error('Guardar después de cancelar sobrescribió una tarea');
+if(await page.locator('#taskList [data-edit-item]').count()!==tasksBeforeNew+1)throw Error('Guardar después de cancelar no creó una nueva tarea');
 if(!(await page.locator('#taskList').innerText()).includes('Tarea editada'))throw Error('Se perdió la tarea original');
 // Exercise destructive actions on test-only records and the project lifecycle.
 await page.evaluate(()=>document.querySelector('[data-go="guests"]').click());
