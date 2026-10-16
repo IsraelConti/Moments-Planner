@@ -78,7 +78,7 @@ $("#restorePurchase").onclick=()=>{
   if(android()?.restorePurchases)android().restorePurchases();
   else {$("#paywallStatus").textContent="La restauración de compras solo está disponible en Android.";toast("Abre Moments Planner en Android para restaurar la compra");}
 };
-const exitApp=()=>android()?.exitApp?android().exitApp():window.close();
+const exitApp=()=>{if(android()?.exitApp){android().exitApp();return;}window.onMomentsOfferUnavailable("Para salir, utiliza el botón Atrás del dispositivo o cierra esta pestaña.");toast("Usa Atrás para salir de Moments Planner");};
 $("#closePaywall").onclick=exitApp;
 $("#exitPaywall").onclick=exitApp;
 $("#manageSubscription").onclick=()=>android()?.manageSubscription?android().manageSubscription():toast("Gestiona la suscripción desde Google Play");
