@@ -14,7 +14,8 @@ function normalizeProject(p){
   collections.guests=collections.guests.map(g=>({...g,seats:Number(g.seats||1),tableId:g.tableId||""}));
   return {...p,...collections,contingency:{planB:"",transport:"",emergencyContact:"",accessibility:"",operations:"",...(p?.contingency||{})}};
 }
-let projects=(Array.isArray(localStorage.getItem(KEY)?readJson(KEY,[]):readJson(OLD_KEY,[]))?(localStorage.getItem(KEY)?readJson(KEY,[]):readJson(OLD_KEY,[])):[]).map(normalizeProject);
+const storedProjects=localStorage.getItem(KEY)?readJson(KEY,[]):readJson(OLD_KEY,[]);
+let projects=(Array.isArray(storedProjects)?storedProjects:[]).map(normalizeProject);
 const storedSettings=localStorage.getItem(SETTINGS)?readJson(SETTINGS,defaultSettings):readJson(OLD_SETTINGS,defaultSettings);
 let settings={...defaultSettings,...(storedSettings&&typeof storedSettings==="object"&&!Array.isArray(storedSettings)?storedSettings:{})};
 let currentId=localStorage.getItem("moments.current")||"";
