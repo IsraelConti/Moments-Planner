@@ -22,6 +22,8 @@ jobs:
           test -s src/index.html
           test -s src/app.js
           test -s src/styles.css
+      - name: Run source regression checks
+        run: node scripts/audit-static.mjs
       - name: Apply Moments Expert professional enhancements
         run: node scripts/enhance-moments.mjs
       - name: Setup Node
