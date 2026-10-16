@@ -195,11 +195,15 @@ function renderDashboard(){
 function addCollection(form,key,extra={}){
   form.addEventListener("submit",e=>{
     e.preventDefault();const p=current();if(!p)return;
-    const item={...Object.fromEntries(new FormData(form)),...extra,id:uid(),createdAt:new Date().toISOString()};
+    const existingId=form.dataset.editingId;
+    const existing=existingId?p[key].find(x=>x.id===existingId):null;
+    const item={...(existing||{}),...Object.fromEntries(new FormData(form)),...(existing?{}:extra),id:existing?.id||uid(),createdAt:existing?.createdAt||new Date().toISOString()};
     if(key==="guests")item.seats=Math.max(1,Number(item.seats||1));
-    p[key].push(item);save();form.reset();
+    if(existing)p[key]=p[key].map(x=>x.id===existing.id?item:x);else p[key].push(item);
+    delete form.dataset.editingId;save();form.reset();
     if(key==="guests")form.elements.seats.value=1;
-    toast("Guardado correctamente");
+    const submit=form.querySelector('button[type="submit"],button:not([type])');if(submit?.dataset.defaultLabel){submit.textContent=submit.dataset.defaultLabel;delete submit.dataset.defaultLabel;}
+    toast(existing?"Registro actualizado":"Guardado correctamente");
   });
 }
 addCollection($("#guestForm"),"guests");
@@ -216,20 +220,30 @@ function del(key,id){
   if(key==="tables")p.guests.forEach(g=>{if(g.tableId===id)g.tableId="";});
   save();toast("Registro eliminado");
 }
-function bindDeletes(){$$("[data-delete]").forEach(b=>b.onclick=()=>{const [key,id]=b.dataset.delete.split(":");if(confirm("¿Eliminar este registro?"))del(key,id);});}
+function editCollection(key,id){
+  const p=current();const item=p?.[key]?.find(x=>x.id===id);if(!item)return;
+  const forms={guests:"guestForm",tasks:"taskForm",expenses:"expenseForm",vendors:"vendorForm",schedule:"scheduleForm",tables:"tableForm"};
+  const form=$("#"+forms[key]);if(!form)return;
+  form.reset();form.dataset.editingId=id;
+  for(const el of form.elements){if(el.name&&Object.prototype.hasOwnProperty.call(item,el.name))el.value=item[el.name]??"";}
+  const submit=form.querySelector('button[type="submit"],button:not([type])');
+  if(submit){if(!submit.dataset.defaultLabel)submit.dataset.defaultLabel=submit.textContent;submit.textContent="Guardar cambios";}
+  form.scrollIntoView({behavior:"smooth",block:"start"});
+}
+function bindDeletes(){$("[data-edit-item]").forEach(b=>b.onclick=()=>{const [key,id]=b.dataset.editItem.split(":");editCollection(key,id);});$("[data-delete]").forEach(b=>b.onclick=()=>{const [key,id]=b.dataset.delete.split(":");if(confirm("¿Eliminar este registro?"))del(key,id);});}
 function tableOptions(p,selected){return'<option value="">Sin mesa</option>'+p.tables.map(t=>'<option value="'+t.id+'" '+(t.id===selected?"selected":"")+'>'+esc(t.name)+'</option>').join("");}
 function renderGuests(){
   const p=current();if(!p)return;
   const confirmed=projectSeats(p,"confirmed"),pending=projectSeats(p,"pending"),declined=projectSeats(p,"declined"),special=p.guests.filter(g=>g.menu?.trim()).length;
   $("#guestSummary").innerHTML='<div><small>Confirmados</small><b>'+confirmed+'</b></div><div><small>Pendientes</small><b>'+pending+'</b></div><div><small>No asistirán</small><b>'+declined+'</b></div><div><small>Necesidades</small><b>'+special+'</b></div>';
-  $("#guestList").innerHTML=p.guests.length?p.guests.map(g=>'<article class="row guest-row"><div><b>'+esc(g.name)+' <em>'+Number(g.seats||1)+' plaza'+(Number(g.seats||1)===1?"":"s")+'</em></b><small>'+esc(g.group||"Sin grupo")+' · '+esc(g.phone||"Sin teléfono")+' · '+esc(g.menu||"Sin necesidades indicadas")+'</small><select data-guest-table="'+g.id+'">'+tableOptions(p,g.tableId)+'</select></div><span class="badge '+esc(g.status)+'">'+(g.status==="confirmed"?"Confirmado":g.status==="declined"?"No asistirá":"Pendiente")+'</span><button class="mini danger" data-delete="guests:'+g.id+'">×</button></article>').join(""):empty("Añade invitados y controla sus confirmaciones.");
+  $("#guestList").innerHTML=p.guests.length?p.guests.map(g=>'<article class="row guest-row"><div><b>'+esc(g.name)+' <em>'+Number(g.seats||1)+' plaza'+(Number(g.seats||1)===1?"":"s")+'</em></b><small>'+esc(g.group||"Sin grupo")+' · '+esc(g.phone||"Sin teléfono")+' · '+esc(g.menu||"Sin necesidades indicadas")+'</small><select data-guest-table="'+g.id+'">'+tableOptions(p,g.tableId)+'</select></div><span class="badge '+esc(g.status)+'">'+(g.status==="confirmed"?"Confirmado":g.status==="declined"?"No asistirá":"Pendiente")+'</span><button class="mini" data-edit-item="guests:\'+ g.id+\'">Editar</button><button class="mini danger" data-delete="guests:\'+ g.id+\'">×</button></article>').join(""):empty("Añade invitados y controla sus confirmaciones.");
   $$("[data-guest-table]").forEach(s=>s.onchange=()=>{const g=p.guests.find(x=>x.id===s.dataset.guestTable);if(g){g.tableId=s.value;save();toast("Mesa asignada");}});
 }
 function renderTasks(){
   const p=current();if(!p)return;
   $("#taskList").innerHTML=p.tasks.length?[...p.tasks].sort((a,b)=>(a.dueDate||"").localeCompare(b.dueDate||"")).map(t=>{
     const overdue=!t.done&&t.dueDate&&t.dueDate<todayIso();
-    return '<article class="row '+(t.done?"done ":"")+(overdue?"overdue":"")+'"><button class="check" data-done="'+t.id+'">'+(t.done?"✓":"")+'</button><div><b>'+esc(t.title)+'</b><small>'+date(t.dueDate)+' · '+esc(t.category||"General")+' · '+esc(t.responsible||"Sin responsable")+' · '+esc(t.priority)+'</small></div><button class="mini danger" data-delete="tasks:'+t.id+'">×</button></article>';
+    return '<article class="row '+(t.done?"done ":"")+(overdue?"overdue":"")+'"><button class="check" data-done="'+t.id+'">'+(t.done?"✓":"")+'</button><div><b>'+esc(t.title)+'</b><small>'+date(t.dueDate)+' · '+esc(t.category||"General")+' · '+esc(t.responsible||"Sin responsable")+' · '+esc(t.priority)+'</small></div><button class="mini" data-edit-item="tasks:\'+ t.id+\'">Editar</button><button class="mini danger" data-delete="tasks:\'+ t.id+\'">×</button></article>';
   }).join(""):empty("Añade tareas o deja que Moments IA cree un plan maestro.");
   $$("[data-done]").forEach(b=>b.onclick=()=>{const t=p.tasks.find(x=>x.id===b.dataset.done);t.done=!t.done;save();});
 }
@@ -237,22 +251,22 @@ function renderBudget(){
   const p=current();if(!p)return;
   const total=p.expenses.reduce((a,x)=>a+Number(x.amount||0),0),paid=p.expenses.reduce((a,x)=>a+Number(x.paid||0),0),max=Number(p.budget||0);
   $("#budgetSummary").innerHTML='<div><small>Presupuesto</small><b>'+fmt(max)+'</b></div><div><small>Comprometido</small><b>'+fmt(total)+'</b></div><div><small>Pendiente pago</small><b>'+fmt(total-paid)+'</b></div><div><small>Disponible</small><b class="'+(max-total<0?"danger-text":"")+'">'+fmt(max-total)+'</b></div>';
-  $("#expenseList").innerHTML=p.expenses.length?p.expenses.map(x=>'<article class="row"><div><b>'+esc(x.concept)+'</b><small>'+esc(x.category||"Otros")+' · Pagado '+fmt(x.paid)+' · Vence '+date(x.dueDate)+'</small></div><strong>'+fmt(x.amount)+'</strong><button class="mini danger" data-delete="expenses:'+x.id+'">×</button></article>').join(""):empty("Registra presupuestos, señales y pagos.");
+  $("#expenseList").innerHTML=p.expenses.length?p.expenses.map(x=>'<article class="row"><div><b>'+esc(x.concept)+'</b><small>'+esc(x.category||"Otros")+' · Pagado '+fmt(x.paid)+' · Vence '+date(x.dueDate)+'</small></div><strong>'+fmt(x.amount)+'</strong><button class="mini" data-edit-item="expenses:\'+ x.id+\'">Editar</button><button class="mini danger" data-delete="expenses:\'+ x.id+\'">×</button></article>').join(""):empty("Registra presupuestos, señales y pagos.");
 }
 function renderVendors(){
   const p=current();if(!p)return;
   const labels={candidate:"Candidato",quoted:"Presupuesto",booked:"Contratado",discarded:"Descartado"};
-  $("#vendorList").innerHTML=p.vendors.length?p.vendors.map(v=>'<article class="row"><div><b>'+esc(v.name)+'</b><small>'+esc(v.service)+' · '+esc(v.contact||"Sin contacto")+' · '+(v.quote?fmt(v.quote):"Sin precio")+' · '+esc(v.notes||"")+'</small></div><span class="badge '+esc(v.status||"candidate")+'">'+(labels[v.status]||"Candidato")+'</span><button class="mini danger" data-delete="vendors:'+v.id+'">×</button></article>').join(""):empty("Añade finca, catering, música, fotografía, decoración, transporte y demás servicios.");
+  $("#vendorList").innerHTML=p.vendors.length?p.vendors.map(v=>'<article class="row"><div><b>'+esc(v.name)+'</b><small>'+esc(v.service)+' · '+esc(v.contact||"Sin contacto")+' · '+(v.quote?fmt(v.quote):"Sin precio")+' · '+esc(v.notes||"")+'</small></div><span class="badge '+esc(v.status||"candidate")+'">'+(labels[v.status]||"Candidato")+'</span><button class="mini" data-edit-item="vendors:\'+ v.id+\'">Editar</button><button class="mini danger" data-delete="vendors:\'+ v.id+\'">×</button></article>').join(""):empty("Añade finca, catering, música, fotografía, decoración, transporte y demás servicios.");
 }
 function renderSchedule(){
   const p=current();if(!p)return;
-  $("#scheduleList").innerHTML=p.schedule.length?[...p.schedule].sort((a,b)=>(a.time||"").localeCompare(b.time||"")).map(x=>'<article><time>'+esc(x.time)+(x.endTime?"–"+esc(x.endTime):"")+'</time><div><b>'+esc(x.title)+'</b><small>'+esc(x.place||"Lugar pendiente")+' · '+esc(x.responsible||"Sin responsable")+'</small></div><button class="mini danger" data-delete="schedule:'+x.id+'">×</button></article>').join(""):empty("Construye el cronograma completo del gran día.");
+  $("#scheduleList").innerHTML=p.schedule.length?[...p.schedule].sort((a,b)=>(a.time||"").localeCompare(b.time||"")).map(x=>'<article><time>'+esc(x.time)+(x.endTime?"–"+esc(x.endTime):"")+'</time><div><b>'+esc(x.title)+'</b><small>'+esc(x.place||"Lugar pendiente")+' · '+esc(x.responsible||"Sin responsable")+'</small></div><button class="mini" data-edit-item="schedule:\'+ x.id+\'">Editar</button><button class="mini danger" data-delete="schedule:\'+ x.id+\'">×</button></article>').join(""):empty("Construye el cronograma completo del gran día.");
 }
 function renderTables(){
   const p=current();if(!p)return;
   $("#tableList").innerHTML=p.tables.length?p.tables.map(t=>{
     const assigned=p.guests.filter(g=>g.tableId===t.id&&g.status!=="declined").reduce((a,g)=>a+Number(g.seats||1),0),cap=Number(t.capacity||0),over=assigned>cap;
-    return '<article class="row '+(over?"capacity-over":"")+'"><div><b>'+esc(t.name)+'</b><small>'+assigned+' de '+cap+' plazas · '+esc(t.zone||"Zona sin indicar")+(over?" · CAPACIDAD SUPERADA":"")+'</small><span class="progress"><i style="width:'+Math.min(100,Math.round(assigned/Math.max(cap,1)*100))+'%"></i></span></div><button class="mini danger" data-delete="tables:'+t.id+'">×</button></article>';
+    return '<article class="row '+(over?"capacity-over":"")+'"><div><b>'+esc(t.name)+'</b><small>'+assigned+' de '+cap+' plazas · '+esc(t.zone||"Zona sin indicar")+(over?" · CAPACIDAD SUPERADA":"")+'</small><span class="progress"><i style="width:'+Math.min(100,Math.round(assigned/Math.max(cap,1)*100))+'%"></i></span></div><button class="mini" data-edit-item="tables:\'+ t.id+\'">Editar</button><button class="mini danger" data-delete="tables:\'+ t.id+\'">×</button></article>';
   }).join(""):empty("Crea las mesas y controla su capacidad.");
 }
 
