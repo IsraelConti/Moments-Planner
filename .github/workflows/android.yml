@@ -3,7 +3,7 @@ name: Build Moments Planner Android
 on:
   workflow_dispatch:
   push:
-    branches: [main]
+    branches: [main, fix/moments-play-review]
   pull_request:
     branches: [main]
 
