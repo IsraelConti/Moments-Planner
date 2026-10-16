@@ -21,7 +21,7 @@ const titles={home:"Bodas y eventos",projectForm:"Nuevo proyecto",dashboard:"Pan
 const current=()=>projects.find(p=>p.id===currentId);
 const uid=()=>globalThis.crypto?.randomUUID?.()||("id-"+Date.now()+"-"+Math.random().toString(16).slice(2));
 const esc=v=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c]));
-const locale=()=>settings.language||"es";
+const locale=()=>({es:"es-ES",en:"en-US",fr:"fr-FR",de:"de-DE",it:"it-IT",pt:"pt-PT"}[settings.language]||"es-ES");
 const fmt=n=>new Intl.NumberFormat(locale(),{style:"currency",currency:settings.currency||"EUR"}).format(Number(n||0));
 const date=v=>v?new Intl.DateTimeFormat(locale(),{dateStyle:"medium"}).format(new Date(v+"T12:00:00")):"Sin fecha";
 const todayIso=()=>{const d=new Date();return [d.getFullYear(),String(d.getMonth()+1).padStart(2,"0"),String(d.getDate()).padStart(2,"0")].join("-");};
