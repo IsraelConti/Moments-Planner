@@ -116,7 +116,8 @@ jobs:
             grep -q "com.momentsplanner.events" android-smoke-activity.txt || { echo "Moments Planner not present in activity state"; exit 1; }
             adb shell input keyevent 4
             sleep 2
-            adb shell pidof com.momentsplanner.events || { echo "App exited unexpectedly after Android back"; exit 1; }
+            # On the home screen Back is intentionally allowed to exit the Activity.
+            # Verify that reopening works whether Android kept or stopped its process.
             adb shell am start -n com.momentsplanner.events/.MainActivity
             sleep 3
             adb shell pidof com.momentsplanner.events
