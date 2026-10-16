@@ -24,7 +24,7 @@ const esc=v=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&
 const locale=()=>settings.language||"es";
 const fmt=n=>new Intl.NumberFormat(locale(),{style:"currency",currency:settings.currency||"EUR"}).format(Number(n||0));
 const date=v=>v?new Intl.DateTimeFormat(locale(),{dateStyle:"medium"}).format(new Date(v+"T12:00:00")):"Sin fecha";
-const todayIso=()=>new Date().toISOString().slice(0,10);
+const todayIso=()=>{const d=new Date();return [d.getFullYear(),String(d.getMonth()+1).padStart(2,"0"),String(d.getDate()).padStart(2,"0")].join("-");};
 const daysBetween=(a,b)=>Math.ceil((new Date(b+"T12:00:00")-new Date(a+"T12:00:00"))/86400000);
 const normalizeText=v=>String(v||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().trim();
 const android=()=>window.MomentsAndroid;
