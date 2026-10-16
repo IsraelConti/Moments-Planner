@@ -1,0 +1,10 @@
+import { readFileSync } from 'node:fs';
+import assert from 'node:assert/strict';
+const app=readFileSync('src/app.js','utf8');
+const html=readFileSync('src/index.html','utf8');
+const enhancer=readFileSync('scripts/enhance-moments.mjs','utf8');
+for(const key of ['function renderGuests(){','function renderTasks(){','function normalizeProject(p)','function renderSettings']) assert.ok(app.includes(key),'Missing app function: '+key);
+for(const id of ['guestForm','guestList','guestSummary']) assert.ok(html.includes('id="'+id+'"'),'Missing UI element '+id);
+for(const anchor of ['collections.guests=collections.guests.map(g=>({...g,seats:Number(g.seats||1),tableId:g.tableId||""}));','if(key==="guests")item.seats=Math.max(1,Number(item.seats||1));','addCollection($("#guestForm"),"guests");','function renderGuests(){','\nfunction renderTasks(){']) assert.ok(app.includes(anchor),'Enhancement anchor missing: '+anchor);
+assert.ok(enhancer.includes('Moments Expert full RSVP'),'Missing enhancement script');
+console.log('Static regression checks passed');
