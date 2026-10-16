@@ -61,7 +61,8 @@ window.onMomentsOfferUnavailable=message=>{
   $("#paywallStatus").textContent=message||"No se pudo consultar el producto en Google Play.";
 };
 window.onMomentsSubscription=(active,price,message)=>{
-  if(price)window.onMomentsOffer(price,false);
+  // Subscription status must not overwrite the exact Play offer, trial, or localized price.
+  // Only the product-details callback can set the purchase offer displayed to users.
   $("#subscriptionStatus").textContent=active?"Suscripción mensual activa":(message||"Suscripción necesaria");
   $("#paywall").classList.toggle("hidden",!!active);
   if(!active&&!price)$("#paywallStatus").textContent=message||"Se necesita una suscripción activa para usar Moments Planner.";
