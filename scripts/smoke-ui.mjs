@@ -18,6 +18,14 @@ await page.evaluate(()=>window.onMomentsSubscription(true,'','Suscripción de pr
 await page.waitForTimeout(500);
 if(errors.length)throw Error('Errores JS al arrancar: '+errors.join('; '));
 if(await page.locator('#paywall').isVisible())throw Error('La suscripción simulada no desbloqueó la interfaz');
+// Paywall buttons must be responsive and must call the native billing bridge.
+await page.evaluate(()=>window.onMomentsSubscription(false,'','Suscripción necesaria'));
+if(!(await page.locator('#paywall').isVisible()))throw Error('El paywall no aparece sin suscripción');
+await page.evaluate(()=>{window.__billingCalls=[];window.Android.subscribeMonthly=()=>window.__billingCalls.push('subscribe');window.Android.restorePurchases=()=>window.__billingCalls.push('restore');});
+const paywallButtons=await page.locator('#paywall button').evaluateAll(els=>els.map(e=>({id:e.id,text:e.textContent.trim()})));
+console.log('Paywall buttons:',JSON.stringify(paywallButtons));
+await page.evaluate(()=>window.onMomentsSubscription(true,'','Suscripción de prueba'));
+if(await page.locator('#paywall').isVisible())throw Error('El paywall no se oculta al restaurar una suscripción válida');
 // Verify that a real project can be created and becomes the active dashboard.
 await page.locator('[data-new-project="wedding"]').first().click();
 if(await page.locator('.screen.active').getAttribute('data-screen')!=='projectForm')throw Error('Crear boda no abre el formulario');
