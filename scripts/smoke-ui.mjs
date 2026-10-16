@@ -34,7 +34,9 @@ if(await page.locator('.screen.active').getAttribute('data-screen')!=='dashboard
 for(const [screen,form,fields,list,needle] of [
   ['guests','guestForm',{name:'Invitado de prueba'},'guestList','Invitado de prueba'],
   ['tasks','taskForm',{title:'Tarea de prueba',dueDate:'2027-06-01'},'taskList','Tarea de prueba'],
-  ['budget','expenseForm',{concept:'Gasto de prueba',amount:'125'},'expenseList','Gasto de prueba']
+  ['budget','expenseForm',{concept:'Gasto de prueba',amount:'125'},'expenseList','Gasto de prueba'],
+  ['vendors','vendorForm',{name:'Proveedor de prueba',service:'Música'},'vendorList','Proveedor de prueba'],
+  ['tables','tableForm',{name:'Mesa de prueba',capacity:'8'},'tableList','Mesa de prueba']
 ]){
   await page.evaluate(target=>document.querySelector('[data-go="'+target+'"]').click(),screen);
   if(await page.locator('.screen.active').getAttribute('data-screen')!==screen)throw Error('No abre '+screen);
