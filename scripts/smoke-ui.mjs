@@ -89,6 +89,17 @@ for(const [screen,form,list,field,newValue] of [
   if(!(await page.locator('#'+list).innerText()).includes(newValue))throw Error('Editar registro no guardó: '+screen);
   if(await page.locator('#'+list+' [data-edit-item]').count()!==1)throw Error('Editar registro duplicó: '+screen);
 }
+// Leaving an unfinished edit must cancel it, not overwrite the existing record on next save.
+await page.evaluate(()=>document.querySelector('[data-go="tasks"]').click());
+await page.locator('#taskList [data-edit-item]').first().click();
+await page.locator('#taskForm [name="title"]').fill('Cambio no guardado');
+await page.evaluate(()=>document.querySelector('[data-go="guests"]').click());
+await page.evaluate(()=>document.querySelector('[data-go="tasks"]').click());
+if(await page.locator('#taskForm').evaluate(f=>!!f.dataset.editingId))throw Error('La edición pendiente no se canceló al navegar');
+await page.locator('#taskForm [name="title"]').fill('Nueva tarea después de cancelar');
+await page.locator('#taskForm button').first().click();
+if(await page.locator('#taskList [data-edit-item]').count()!==2)throw Error('Guardar después de cancelar sobrescribió una tarea');
+if(!(await page.locator('#taskList').innerText()).includes('Tarea editada'))throw Error('Se perdió la tarea original');
 // Exercise destructive actions on test-only records and the project lifecycle.
 await page.evaluate(()=>document.querySelector('[data-go="guests"]').click());
 page.once('dialog',dialog=>dialog.accept());
