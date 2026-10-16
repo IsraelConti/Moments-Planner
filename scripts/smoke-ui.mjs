@@ -102,6 +102,20 @@ await page.locator('#taskForm [name="dueDate"]').fill('2027-06-02');
 await page.locator('#taskForm button').first().click();
 if(await page.locator('#taskList [data-edit-item]').count()!==tasksBeforeNew+1)throw Error('Guardar después de cancelar no creó una nueva tarea');
 if(!(await page.locator('#taskList').innerText()).includes('Tarea editada'))throw Error('Se perdió la tarea original');
+// Verify task completion and reopening via the real checkbox buttons.
+await page.locator('#taskList [data-done]').first().click();
+if(!(await page.locator('#taskList .row.done').count()))throw Error('Marcar tarea completada no actualiza la lista');
+await page.locator('#taskList [data-done]').first().click();
+if(await page.locator('#taskList .row.done').count())throw Error('Reabrir tarea no actualiza la lista');
+// Verify deletion for all six editable collections on test-only data.
+for(const [screen,list] of [['tasks','taskList'],['budget','expenseList'],['vendors','vendorList'],['tables','tableList'],['schedule','scheduleList']]){
+  await page.evaluate(target=>document.querySelector('[data-go="'+target+'"]').click(),screen);
+  const before=await page.locator('#'+list+' [data-delete]').count();
+  if(before<1)throw Error('No hay registros para probar eliminar: '+screen);
+  page.once('dialog',dialog=>dialog.accept());
+  await page.locator('#'+list+' [data-delete]').first().click();
+  if(await page.locator('#'+list+' [data-delete]').count()!==before-1)throw Error('Eliminar registro no actualiza '+screen);
+}
 // Exercise destructive actions on test-only records and the project lifecycle.
 await page.evaluate(()=>document.querySelector('[data-go="guests"]').click());
 page.once('dialog',dialog=>dialog.accept());
