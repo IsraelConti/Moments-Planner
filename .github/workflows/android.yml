@@ -3,7 +3,7 @@ name: Build Moments Planner Android
 on:
   workflow_dispatch:
   push:
-    branches: [main]
+    branches: [main, fix/moments-play-review]
   pull_request:
     branches: [main]
 
@@ -17,27 +17,16 @@ jobs:
     steps:
       - name: Checkout Moments Planner
         uses: actions/checkout@v4
-      - name: Restore original Moments Planner web sources
-        uses: actions/checkout@v4
-        with:
-          repository: IsraelConti/ToolStock-Pro
-          ref: wedding-events-planner
-          path: _source
-          sparse-checkout: |
-            src
-      - name: Copy application sources
+      - name: Validate self-contained Moments Planner sources
         run: |
-          mkdir -p src
-          cp -f _source/src/index.html src/index.html
-          cp -f _source/src/app.js src/app.js
-          cp -f _source/src/styles.css src/styles.css
-          if [ -f _source/src/app-icon.b64 ]; then cp -f _source/src/app-icon.b64 src/app-icon.b64; fi
-          rm -rf _source
           test -s src/index.html
           test -s src/app.js
           test -s src/styles.css
+          test -s src/app-icon.b64
       - name: Apply Moments Expert professional enhancements
         run: node scripts/enhance-moments.mjs
+      - name: Check enhanced JavaScript syntax
+        run: node --check src/app.js
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
@@ -55,6 +44,12 @@ jobs:
             cp -f src/app-icon.png "android/app/src/main/res/mipmap-$density/ic_launcher.png"
             cp -f src/app-icon.png "android/app/src/main/res/mipmap-$density/ic_launcher_round.png"
           done
+      - name: Install Chromium test browser
+        run: |
+          npm install --no-save playwright@1.56.1
+          npx playwright install --with-deps chromium
+      - name: Test real browser navigation and JavaScript runtime
+        run: node scripts/smoke-ui.mjs
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
@@ -62,6 +57,8 @@ jobs:
           java-version: "17"
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
       - name: Install Android API 36
         run: sdkmanager "platforms;android-36" "build-tools;36.0.0"
       - name: Setup Gradle
@@ -77,9 +74,67 @@ jobs:
           name: Moments-Planner-APK
           path: android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
-      - name: Upload unsigned Play Store bundle
+      - name: Upload release bundle for review
         uses: actions/upload-artifact@v4
         with:
           name: Moments-Planner-AAB-unsigned
           path: android/app/build/outputs/bundle/release/app-release.aab
           if-no-files-found: error
+
+      - name: Package source code and build evidence
+        run: |
+          mkdir -p review-package
+          git archive --format=zip --output=review-package/Moments-Planner-source.zip HEAD
+          printf 'Commit: %s\nRun: %s\nSource: fix/moments-play-review\nChecks: browser Playwright smoke completed before packaging; Android emulator smoke runs after packaging\nBilling: mocked JS bridge only; real Play purchases and restore not verified\nAndroid: emulator install/launch/back/relaunch test runs after packaging; see separate ANDROID-SMOKE-LOG artifact\nAAB: unsigned; requires correct upload key signing before Play upload\nPlay review: not submitted\n' "$GITHUB_SHA" "$GITHUB_RUN_ID" > review-package/BUILD-REPORT.txt
+          sha256sum android/app/build/outputs/apk/debug/app-debug.apk android/app/build/outputs/bundle/release/app-release.aab > review-package/SHA256SUMS.txt
+      - name: Upload source backup and build report
+        uses: actions/upload-artifact@v4
+        with:
+          name: Moments-Planner-SOURCE-AND-REPORT
+          path: review-package/
+          if-no-files-found: error
+      - name: Enable KVM acceleration for Android emulator
+        run: |
+          if test -e /dev/kvm; then sudo chmod 666 /dev/kvm; ls -l /dev/kvm; else echo 'WARNING: KVM unavailable'; fi
+      - name: Android emulator installation and launch smoke test
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_4
+          disable-animations: true
+          force-avd-creation: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot -no-metrics
+          emulator-boot-timeout: 480
+          script: |
+            adb install -r android/app/build/outputs/apk/debug/app-debug.apk
+            adb shell am start -n com.momentsplanner.events/.MainActivity
+            sleep 12
+            adb shell pidof com.momentsplanner.events
+            adb shell dumpsys activity activities > android-smoke-activity.txt
+            adb shell uiautomator dump /sdcard/moments-ui.xml || true
+            adb shell cat /sdcard/moments-ui.xml > android-smoke-ui.xml || true
+            adb shell screencap -p /sdcard/moments-screen.png
+            adb pull /sdcard/moments-screen.png android-smoke-screen.png
+            grep -q "com.momentsplanner.events" android-smoke-activity.txt || { echo "Moments Planner not present in activity state"; exit 1; }
+            adb shell input keyevent 4
+            sleep 2
+            # On the home screen Back is intentionally allowed to exit the Activity.
+            # Verify that reopening works whether Android kept or stopped its process.
+            adb shell am start -n com.momentsplanner.events/.MainActivity
+            sleep 3
+            adb shell pidof com.momentsplanner.events
+            adb logcat -d -t 5000 -v brief > android-smoke-logcat.txt
+            if grep -A 12 'FATAL EXCEPTION' android-smoke-logcat.txt | grep -q 'Process: com.momentsplanner.events'; then echo 'Moments Planner Android crash detected'; exit 1; fi
+      - name: Upload Android emulator smoke log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Moments-Planner-ANDROID-SMOKE-LOG
+          path: |
+            android-smoke-logcat.txt
+            android-smoke-activity.txt
+            android-smoke-ui.xml
+            android-smoke-screen.png
+          if-no-files-found: ignore
