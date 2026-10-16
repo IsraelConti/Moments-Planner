@@ -68,6 +68,29 @@ jobs:
       - name: Compile debug APK and release bundle
         working-directory: android
         run: gradle --no-daemon clean assembleDebug bundleRelease
+      - name: Android emulator installation and launch smoke test
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_4
+          disable-animations: true
+          emulator-boot-timeout: 600
+          script: |
+            adb install -r android/app/build/outputs/apk/debug/app-debug.apk
+            adb shell am start -n com.momentsplanner.events/.MainActivity
+            sleep 12
+            adb shell pidof com.momentsplanner.events
+            adb logcat -d -t 5000 -v brief > android-smoke-logcat.txt
+            if grep -E 'FATAL EXCEPTION|Process: com.momentsplanner.events' android-smoke-logcat.txt | grep -q 'FATAL EXCEPTION'; then exit 1; fi
+      - name: Upload Android emulator smoke log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Moments-Planner-ANDROID-SMOKE-LOG
+          path: android-smoke-logcat.txt
+          if-no-files-found: ignore
       - name: Upload installable APK
         uses: actions/upload-artifact@v4
         with:
