@@ -35,7 +35,20 @@ const billingCalls=await page.evaluate(()=>window.__billingCalls);
 if(JSON.stringify(billingCalls)!==JSON.stringify(['subscribe','restore','exit','exit']))throw Error('Suscripción/restauración no invocan el puente Android: '+JSON.stringify(billingCalls));
 await page.evaluate(()=>window.onMomentsOfferUnavailable('Sin oferta'));
 if(!(await page.locator('#subscribeBtn').isDisabled()))throw Error('El botón de compra sigue activo sin oferta');
+// Regression: subscription price must reflect the exact localized Play offer, never the project currency.
+for(const localizedPrice of ['4,99 €','US$5.49','£4.49','MX$109.00']){
+  await page.evaluate(price=>window.onMomentsOffer(price,false),localizedPrice);
+  const shown=await page.locator('#subscriptionPrice').innerText();
+  const button=await page.locator('#subscribeBtn').innerText();
+  const status=await page.locator('#paywallStatus').innerText();
+  if(!shown.includes(localizedPrice)||!button.includes(localizedPrice)||!status.includes(localizedPrice))throw Error('Precio de Play no coincide en pantalla para '+localizedPrice);
+  if(await page.locator('#subscribeBtn').isDisabled())throw Error('Compra deshabilitada para '+localizedPrice);
+}
+await page.evaluate(()=>window.onMomentsOffer('4,99 €',true));
+if(!(await page.locator('#subscriptionPrice').innerText()).includes('4,99 €'))throw Error('Precio posterior a prueba no coincide con Play');
+if(!(await page.locator('#planHeadline').innerText()).includes('3 días'))throw Error('Prueba de tres días no visible cuando Play la ofrece');
 await page.evaluate(()=>window.onMomentsOffer('4,99 €',false));
+if((await page.locator('#planHeadline').innerText()).includes('gratis'))throw Error('La prueba gratuita se muestra sin oferta de Play');
 await page.evaluate(()=>window.onMomentsSubscription(true,'','Suscripción de prueba'));
 if(await page.locator('#paywall').isVisible())throw Error('El paywall no se oculta al restaurar una suscripción válida');
 // Verify that a real project can be created and becomes the active dashboard.
