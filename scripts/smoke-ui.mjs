@@ -111,6 +111,22 @@ if(excelBytes.length<100||excelBytes.subarray(0,2).toString()!=='PK')throw Error
 const backupText=await fs.readFile(await backupDownload.path(),'utf8');
 let backupParsed;try{backupParsed=JSON.parse(backupText)}catch{throw Error('La copia JSON descargada no es válida')}
 if(!backupParsed||typeof backupParsed!=='object')throw Error('La copia JSON no contiene datos');
+// Restore the exact backup into a deliberately emptied test-only browser state.
+if(backupParsed.app!=='Moments Planner'||!Array.isArray(backupParsed.projects)||!backupParsed.projects.length)throw Error('La copia no incluye proyectos válidos');
+await page.evaluate(()=>{
+  localStorage.setItem('moments.planner.v2','[]');
+  localStorage.setItem('moments.settings.v2','{}');
+});
+await page.reload();
+await page.evaluate(()=>window.onMomentsSubscription(true,'','Suscripción de prueba'));
+if(await page.locator('[data-open]').count()!==0)throw Error('El estado de prueba no se vació antes de restaurar');
+page.once('dialog',dialog=>dialog.accept());
+await page.locator('#restoreData').setInputFiles({name:'copia-moments.json',mimeType:'application/json',buffer:Buffer.from(backupText,'utf8')});
+await page.waitForFunction(()=>document.querySelectorAll('[data-open]').length>0,{timeout:10000});
+const restored=await page.evaluate(()=>JSON.parse(localStorage.getItem('moments.planner.v2')||'[]'));
+if(restored.length!==backupParsed.projects.length||restored[0]?.name!==backupParsed.projects[0]?.name)throw Error('Restauración incompleta de proyectos');
+const restoredSettings=await page.evaluate(()=>JSON.parse(localStorage.getItem('moments.settings.v2')||'{}'));
+if(restoredSettings.currency!==backupParsed.settings.currency)throw Error('La restauración no recupera los ajustes');
 const destinations=await page.locator('[data-go]').evaluateAll(els=>[...new Set(els.map(e=>e.dataset.go).filter(Boolean))]);
 const visited=[];
 for(const screen of destinations){
