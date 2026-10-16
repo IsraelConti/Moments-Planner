@@ -6,7 +6,7 @@ const page = await browser.newPage({viewport:{width:390,height:844}});
 const errors=[];
 page.on('pageerror',e=>errors.push(e.message));
 await page.addInitScript(()=>{
-  window.Android={
+  window.MomentsAndroid={
     checkSubscription(){setTimeout(()=>window.onMomentsSubscription?.(true,'','Suscripción de prueba'),50)},
     subscribeMonthly(){},restorePurchases(){},
     exitApp(){},copyShareText(){},
@@ -21,7 +21,7 @@ if(await page.locator('#paywall').isVisible())throw Error('La suscripción simul
 // Paywall buttons must be responsive and must call the native billing bridge.
 await page.evaluate(()=>window.onMomentsSubscription(false,'','Suscripción necesaria'));
 if(!(await page.locator('#paywall').isVisible()))throw Error('El paywall no aparece sin suscripción');
-await page.evaluate(()=>{window.__billingCalls=[];window.Android.subscribeMonthly=()=>window.__billingCalls.push('subscribe');window.Android.restorePurchases=()=>window.__billingCalls.push('restore');});
+await page.evaluate(()=>{window.__billingCalls=[];window.MomentsAndroid.subscribeMonthly=()=>window.__billingCalls.push('subscribe');window.MomentsAndroid.restorePurchases=()=>window.__billingCalls.push('restore');window.MomentsAndroid.exitApp=()=>window.__billingCalls.push('exit');});
 const paywallButtons=await page.locator('#paywall button').evaluateAll(els=>els.map(e=>({id:e.id,text:e.textContent.trim()})));
 console.log('Paywall buttons:',JSON.stringify(paywallButtons));
 // Check every paywall action using the real DOM handlers and a mocked native bridge.
@@ -32,7 +32,7 @@ await page.locator('#restorePurchase').click();
 await page.locator('#closePaywall').click();
 await page.locator('#exitPaywall').click();
 const billingCalls=await page.evaluate(()=>window.__billingCalls);
-if(JSON.stringify(billingCalls)!==JSON.stringify(['subscribe','restore']))throw Error('Suscripción/restauración no invocan el puente Android: '+JSON.stringify(billingCalls));
+if(JSON.stringify(billingCalls)!==JSON.stringify(['subscribe','restore','exit','exit']))throw Error('Suscripción/restauración no invocan el puente Android: '+JSON.stringify(billingCalls));
 await page.evaluate(()=>window.onMomentsOfferUnavailable('Sin oferta'));
 if(!(await page.locator('#subscribeBtn').isDisabled()))throw Error('El botón de compra sigue activo sin oferta');
 await page.evaluate(()=>window.onMomentsOffer('4,99 €',false));
