@@ -90,19 +90,19 @@ function go(screen,push=true){
   if(!["home","projectForm","settings","help"].includes(screen)&&!current()){toast("Primero abre o crea un proyecto");screen="home";}
   if(push&&screen!==currentScreen)historyStack.push(currentScreen);
   currentScreen=screen;
-  $document.querySelectorAll(".screen").forEach(x=>x.classList.toggle("active",x.dataset.screen===screen));
+  document.querySelectorAll(".screen").forEach(x=>x.classList.toggle("active",x.dataset.screen===screen));
   $("#screenTitle").textContent=titles[screen]||"Moments Planner";
   $("#backBtn").classList.toggle("hidden",screen==="home");
-  $document.querySelectorAll(".bottom-nav button").forEach(x=>x.classList.toggle("active",x.dataset.go===screen));
+  document.querySelectorAll(".bottom-nav button").forEach(x=>x.classList.toggle("active",x.dataset.go===screen));
   renderAll();scrollTo(0,0);
 }
 function back(){const previous=historyStack.pop();go(previous&&titles[previous]?previous:"home",false);}
 $("#backBtn").addEventListener("click",back);
-$document.querySelectorAll("[data-back]").forEach(b=>b.addEventListener("click",back));
-$document.querySelectorAll("[data-go]").forEach(b=>b.addEventListener("click",()=>go(b.dataset.go)));
+document.querySelectorAll("[data-back]").forEach(b=>b.addEventListener("click",back));
+document.querySelectorAll("[data-go]").forEach(b=>b.addEventListener("click",()=>go(b.dataset.go)));
 window.onAndroidBack=()=>{if(currentScreen==="home")return false;back();return true;};
 
-$document.querySelectorAll("[data-new-project]").forEach(b=>b.addEventListener("click",()=>{
+document.querySelectorAll("[data-new-project]").forEach(b=>b.addEventListener("click",()=>{
   const type=b.dataset.newProject;
   editingProjectId=null;$("#projectForm").reset();$("#projectForm [name=type]").value=type;
   $("#projectFormTitle").textContent=type==="wedding"?"Nueva boda":"Nuevo evento";
@@ -165,7 +165,7 @@ function renderProjects(){
     const r=readiness(p);
     return '<article class="project-card '+esc(p.type)+'"><span class="project-icon"><svg><use href="#'+(p.type==="wedding"?"rings":"party")+'"/></svg></span><div><b>'+esc(p.name)+'</b><small>'+(p.type==="wedding"?"Boda":"Evento")+' · '+date(p.date)+' · '+esc(p.venue||"Lugar pendiente")+'</small><span class="progress"><i style="width:'+r.score+'%"></i></span></div><span class="score-label">'+r.score+'%</span><button class="btn" data-open="'+p.id+'">Abrir</button></article>';
   }).join(""):'<div class="empty"><h3>Aún no hay proyectos</h3><p>Crea tu primera boda o evento con los botones superiores.</p></div>';
-  $document.querySelectorAll("[data-open]").forEach(b=>b.onclick=()=>{currentId=b.dataset.open;localStorage.setItem("moments.current",currentId);go("dashboard");});
+  document.querySelectorAll("[data-open]").forEach(b=>b.onclick=()=>{currentId=b.dataset.open;localStorage.setItem("moments.current",currentId);go("dashboard");});
 }
 function renderDashboard(){
   const p=current();if(!p)return;
@@ -189,7 +189,7 @@ function renderDashboard(){
     ["reports","calendar","Informes","Excel y copia profesional"]
   ];
   $("#dashboardActions").innerHTML=actions.map(a=>'<button class="action '+(a[0]==="assistant"?"ai-action":"")+'" data-go="'+a[0]+'"><svg><use href="#'+a[1]+'"/></svg><b>'+a[2]+'</b><small>'+a[3]+'</small></button>').join("");
-  $document.querySelectorAll("#dashboardActions [data-go]").forEach(b=>b.onclick=()=>go(b.dataset.go));
+  document.querySelectorAll("#dashboardActions [data-go]").forEach(b=>b.onclick=()=>go(b.dataset.go));
 }
 
 function addCollection(form,key,extra={}){
@@ -237,7 +237,7 @@ function renderGuests(){
   const confirmed=projectSeats(p,"confirmed"),pending=projectSeats(p,"pending"),declined=projectSeats(p,"declined"),special=p.guests.filter(g=>g.menu?.trim()).length;
   $("#guestSummary").innerHTML='<div><small>Confirmados</small><b>'+confirmed+'</b></div><div><small>Pendientes</small><b>'+pending+'</b></div><div><small>No asistirán</small><b>'+declined+'</b></div><div><small>Necesidades</small><b>'+special+'</b></div>';
   $("#guestList").innerHTML=p.guests.length?p.guests.map(g=>'<article class="row guest-row"><div><b>'+esc(g.name)+' <em>'+Number(g.seats||1)+' plaza'+(Number(g.seats||1)===1?"":"s")+'</em></b><small>'+esc(g.group||"Sin grupo")+' · '+esc(g.phone||"Sin teléfono")+' · '+esc(g.menu||"Sin necesidades indicadas")+'</small><select data-guest-table="'+g.id+'">'+tableOptions(p,g.tableId)+'</select></div><span class="badge '+esc(g.status)+'">'+(g.status==="confirmed"?"Confirmado":g.status==="declined"?"No asistirá":"Pendiente")+'</span><button class="mini" data-edit-item="guests:'+ g.id+'">Editar</button><button class="mini danger" data-delete="guests:'+ g.id+'">×</button></article>').join(""):empty("Añade invitados y controla sus confirmaciones.");
-  $document.querySelectorAll("[data-guest-table]").forEach(s=>s.onchange=()=>{const g=p.guests.find(x=>x.id===s.dataset.guestTable);if(g){g.tableId=s.value;save();toast("Mesa asignada");}});
+  document.querySelectorAll("[data-guest-table]").forEach(s=>s.onchange=()=>{const g=p.guests.find(x=>x.id===s.dataset.guestTable);if(g){g.tableId=s.value;save();toast("Mesa asignada");}});
 }
 function renderTasks(){
   const p=current();if(!p)return;
@@ -245,7 +245,7 @@ function renderTasks(){
     const overdue=!t.done&&t.dueDate&&t.dueDate<todayIso();
     return '<article class="row '+(t.done?"done ":"")+(overdue?"overdue":"")+'"><button class="check" data-done="'+t.id+'">'+(t.done?"✓":"")+'</button><div><b>'+esc(t.title)+'</b><small>'+date(t.dueDate)+' · '+esc(t.category||"General")+' · '+esc(t.responsible||"Sin responsable")+' · '+esc(t.priority)+'</small></div><button class="mini" data-edit-item="tasks:'+ t.id+'">Editar</button><button class="mini danger" data-delete="tasks:'+ t.id+'">×</button></article>';
   }).join(""):empty("Añade tareas o deja que Moments IA cree un plan maestro.");
-  $document.querySelectorAll("[data-done]").forEach(b=>b.onclick=()=>{const t=p.tasks.find(x=>x.id===b.dataset.done);t.done=!t.done;save();});
+  document.querySelectorAll("[data-done]").forEach(b=>b.onclick=()=>{const t=p.tasks.find(x=>x.id===b.dataset.done);t.done=!t.done;save();});
 }
 function renderBudget(){
   const p=current();if(!p)return;
@@ -369,7 +369,7 @@ function localAnswer(question,p){
 }
 $("#analyzeProject").onclick=()=>renderAiAnalysis();
 $("#createMasterPlan").onclick=()=>{if(confirm("¿Añadir el plan maestro profesional a las tareas del proyecto?"))createMasterPlan();};
-$document.querySelectorAll("[data-ai-question]").forEach(b=>b.onclick=()=>{const f=$("#aiForm");f.elements.question.value=b.dataset.aiQuestion;f.requestSubmit();});
+document.querySelectorAll("[data-ai-question]").forEach(b=>b.onclick=()=>{const f=$("#aiForm");f.elements.question.value=b.dataset.aiQuestion;f.requestSubmit();});
 $("#aiForm").onsubmit=e=>{
   e.preventDefault();const p=current();if(!p)return;
   const q=e.currentTarget.elements.question.value.trim(),answer=localAnswer(q,p);
@@ -428,7 +428,7 @@ $("#exportFull").onclick=()=>{
 function applySettings(){
   $("#appName").textContent=settings.appName||"Moments Planner";
   const symbol=new Intl.NumberFormat(locale(),{style:"currency",currency:settings.currency||"EUR"}).formatToParts(0).find(x=>x.type==="currency")?.value||"€";
-  $document.querySelectorAll(".currency").forEach(x=>x.textContent=symbol);
+  document.querySelectorAll(".currency").forEach(x=>x.textContent=symbol);
   const f=$("#settingsForm");Object.entries(settings).forEach(([k,v])=>{if(!f.elements[k])return;f.elements[k].type==="checkbox"?f.elements[k].checked=!!v:f.elements[k].value=v;});
 }
 $("#settingsForm").onsubmit=e=>{e.preventDefault();const f=new FormData(e.currentTarget);settings={...settings,...Object.fromEntries(f),notifications:f.has("notifications")};localStorage.setItem(SETTINGS,JSON.stringify(settings));applySettings();toast("Configuración guardada");back();};
