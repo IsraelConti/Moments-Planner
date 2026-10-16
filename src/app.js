@@ -78,7 +78,7 @@ $("#restorePurchase").onclick=()=>{
   if(android()?.restorePurchases)android().restorePurchases();
   else {$("#paywallStatus").textContent="La restauración de compras solo está disponible en Android.";toast("Abre Moments Planner en Android para restaurar la compra");}
 };
-const exitApp=()=>android()?.exitApp?android().exitApp():toast("Cierra Moments Planner para salir");
+const exitApp=()=>android()?.exitApp?android().exitApp():window.close();
 $("#closePaywall").onclick=exitApp;
 $("#exitPaywall").onclick=exitApp;
 $("#manageSubscription").onclick=()=>android()?.manageSubscription?android().manageSubscription():toast("Gestiona la suscripción desde Google Play");
@@ -93,7 +93,7 @@ function go(screen,push=true){
   $$(".bottom-nav button").forEach(x=>x.classList.toggle("active",x.dataset.go===screen));
   renderAll();scrollTo(0,0);
 }
-function back(){go(historyStack.pop()||"home",false);}
+function back(){const previous=historyStack.pop();go(previous&&titles[previous]?previous:"home",false);}
 $("#backBtn").addEventListener("click",back);
 $$("[data-back]").forEach(b=>b.addEventListener("click",back));
 $$("[data-go]").forEach(b=>b.addEventListener("click",()=>go(b.dataset.go)));
