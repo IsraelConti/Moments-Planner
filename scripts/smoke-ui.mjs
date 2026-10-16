@@ -74,6 +74,15 @@ const backupPromise=page.waitForEvent('download',{timeout:10000});
 await page.locator('#backupData').evaluate(el=>el.click());
 const backupDownload=await backupPromise;
 if(!backupDownload.suggestedFilename().endsWith('.json'))throw Error('La copia de seguridad no descarga JSON');
+// Inspect the actual downloaded files, not only their names.
+const fs=await import('node:fs/promises');
+const icsText=await fs.readFile(await calendarDownload.path(),'utf8');
+if(!icsText.includes('BEGIN:VCALENDAR')||!icsText.includes('END:VCALENDAR'))throw Error('El calendario descargado no es un ICS válido');
+const excelBytes=await fs.readFile(await excelDownload.path());
+if(excelBytes.length<100||excelBytes.subarray(0,2).toString()!=='PK')throw Error('El informe Excel descargado no es un archivo XLSX válido');
+const backupText=await fs.readFile(await backupDownload.path(),'utf8');
+let backupParsed;try{backupParsed=JSON.parse(backupText)}catch{throw Error('La copia JSON descargada no es válida')}
+if(!backupParsed||typeof backupParsed!=='object')throw Error('La copia JSON no contiene datos');
 const destinations=await page.locator('[data-go]').evaluateAll(els=>[...new Set(els.map(e=>e.dataset.go).filter(Boolean))]);
 const visited=[];
 for(const screen of destinations){
