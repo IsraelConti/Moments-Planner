@@ -112,6 +112,14 @@ jobs:
             adb shell am start -n com.momentsplanner.events/.MainActivity
             sleep 12
             adb shell pidof com.momentsplanner.events
+            adb shell dumpsys activity activities > android-smoke-activity.txt
+            grep -q "com.momentsplanner.events" android-smoke-activity.txt || { echo "Moments Planner not present in activity state"; exit 1; }
+            adb shell input keyevent 4
+            sleep 2
+            adb shell pidof com.momentsplanner.events || { echo "App exited unexpectedly after Android back"; exit 1; }
+            adb shell am start -n com.momentsplanner.events/.MainActivity
+            sleep 3
+            adb shell pidof com.momentsplanner.events
             adb logcat -d -t 5000 -v brief > android-smoke-logcat.txt
             if grep -A 12 'FATAL EXCEPTION' android-smoke-logcat.txt | grep -q 'Process: com.momentsplanner.events'; then echo 'Moments Planner Android crash detected'; exit 1; fi
       - name: Upload Android emulator smoke log
