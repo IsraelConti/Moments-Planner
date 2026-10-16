@@ -52,7 +52,7 @@ await page.locator('#settingsForm [name="language"]').selectOption('en');
 await page.locator('#settingsForm button').last().click();
 await page.reload();
 await page.evaluate(()=>window.onMomentsSubscription(true,'','Suscripción de prueba'));
-const prefs=await page.evaluate(()=>JSON.parse(localStorage.getItem('moments.settings')||'{}'));
+const prefs=await page.evaluate(()=>JSON.parse(localStorage.getItem('moments.settings.v2')||'{}'));
 if(prefs.currency!=='GBP'||prefs.language!=='en')throw Error('La configuración no persiste al reiniciar');
 // Verify sharing and export controls exist and are enabled.
 await page.locator('[data-open]').first().click();
