@@ -28,7 +28,7 @@ if(await page.locator('.screen.active').getAttribute('data-screen')!=='dashboard
 if(!(await page.evaluate(()=>localStorage.getItem('moments.current'))))throw Error('El proyecto no se guardó como activo');
 await page.reload();
 await page.evaluate(()=>window.onMomentsSubscription(true,'','Suscripción de prueba'));
-await page.locator('[data-go="dashboard"]').first().evaluate(el=>el.click());
+await page.locator('[data-open]').first().click();
 if(await page.locator('.screen.active').getAttribute('data-screen')!=='dashboard')throw Error('El proyecto no persiste tras recargar');
 const destinations=await page.locator('[data-go]').evaluateAll(els=>[...new Set(els.map(e=>e.dataset.go).filter(Boolean))]);
 const visited=[];
