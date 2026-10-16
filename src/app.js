@@ -356,7 +356,7 @@ async function renderInvitation(){
 $("#downloadQr").onclick=()=>{const img=$("#projectQr");if(!img.src)return toast("Espera a que se genere el QR");const name=(current()?.name||"Moments_Planner")+"_QR.png";if(android()?.saveBase64File){android().saveBase64File(name,"image/png",img.src.split(",")[1]||"");}else{const a=document.createElement("a");a.href=img.src;a.download=name;a.click();}};
 $("#copyShareText").onclick=async()=>{
   const text=$("#sharePreview").textContent;
-  try{await navigator.clipboard.writeText(text);toast("Texto copiado");}catch{const t=document.createElement("textarea");t.value=text;document.body.append(t);t.select();document.execCommand("copy");t.remove();toast("Texto copiado");}
+  try{if(!navigator.clipboard?.writeText)throw new Error("Clipboard API unavailable");await navigator.clipboard.writeText(text);toast("Texto copiado");}catch{const t=document.createElement("textarea");t.value=text;document.body.append(t);t.select();const copied=document.execCommand("copy");t.remove();toast(copied?"Texto copiado":"No se pudo copiar. Mantén pulsado el texto para seleccionarlo.");}
 };
 function icsEscape(v){return String(v||"").replace(/\\/g,"\\\\").replace(/\n/g,"\\n").replace(/,/g,"\\,").replace(/;/g,"\\;");}
 $("#downloadCalendar").onclick=()=>{
