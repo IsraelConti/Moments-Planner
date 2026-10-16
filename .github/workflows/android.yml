@@ -44,6 +44,12 @@ jobs:
             cp -f src/app-icon.png "android/app/src/main/res/mipmap-$density/ic_launcher.png"
             cp -f src/app-icon.png "android/app/src/main/res/mipmap-$density/ic_launcher_round.png"
           done
+      - name: Install Chromium test browser
+        run: |
+          npm install --no-save playwright@1.56.1
+          npx playwright install --with-deps chromium
+      - name: Test real browser navigation and JavaScript runtime
+        run: node scripts/smoke-ui.mjs
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
