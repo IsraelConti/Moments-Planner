@@ -68,31 +68,6 @@ jobs:
       - name: Compile debug APK and release bundle
         working-directory: android
         run: gradle --no-daemon clean assembleDebug bundleRelease
-      - name: Android emulator installation and launch smoke test
-        uses: reactivecircus/android-emulator-runner@v2
-        with:
-          api-level: 30
-          target: google_apis
-          arch: x86_64
-          profile: pixel_4
-          disable-animations: false
-          force-avd-creation: true
-          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot -no-metrics
-          emulator-boot-timeout: 480
-          script: |
-            adb install -r android/app/build/outputs/apk/debug/app-debug.apk
-            adb shell am start -n com.momentsplanner.events/.MainActivity
-            sleep 12
-            adb shell pidof com.momentsplanner.events
-            adb logcat -d -t 5000 -v brief > android-smoke-logcat.txt
-            if grep -A 12 'FATAL EXCEPTION' android-smoke-logcat.txt | grep -q 'Process: com.momentsplanner.events'; then echo 'Moments Planner Android crash detected'; exit 1; fi
-      - name: Upload Android emulator smoke log
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: Moments-Planner-ANDROID-SMOKE-LOG
-          path: android-smoke-logcat.txt
-          if-no-files-found: ignore
       - name: Upload installable APK
         uses: actions/upload-artifact@v4
         with:
@@ -118,3 +93,28 @@ jobs:
           name: Moments-Planner-SOURCE-AND-REPORT
           path: review-package/
           if-no-files-found: error
+      - name: Android emulator installation and launch smoke test
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 30
+          target: google_apis
+          arch: x86_64
+          profile: pixel_4
+          disable-animations: false
+          force-avd-creation: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot -no-metrics
+          emulator-boot-timeout: 480
+          script: |
+            adb install -r android/app/build/outputs/apk/debug/app-debug.apk
+            adb shell am start -n com.momentsplanner.events/.MainActivity
+            sleep 12
+            adb shell pidof com.momentsplanner.events
+            adb logcat -d -t 5000 -v brief > android-smoke-logcat.txt
+            if grep -A 12 'FATAL EXCEPTION' android-smoke-logcat.txt | grep -q 'Process: com.momentsplanner.events'; then echo 'Moments Planner Android crash detected'; exit 1; fi
+      - name: Upload Android emulator smoke log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Moments-Planner-ANDROID-SMOKE-LOG
+          path: android-smoke-logcat.txt
+          if-no-files-found: ignore
