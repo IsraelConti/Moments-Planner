@@ -85,7 +85,7 @@ jobs:
         run: |
           mkdir -p review-package
           git archive --format=zip --output=review-package/Moments-Planner-source.zip HEAD
-          printf 'Commit: %s\nRun: %s\nSource: fix/moments-play-review\nStatus: build only; Android UI, billing and Play review tests pending\nAAB: unsigned; not ready for Play upload\n' "$GITHUB_SHA" "$GITHUB_RUN_ID" > review-package/BUILD-REPORT.txt
+          printf 'Commit: %s\nRun: %s\nSource: fix/moments-play-review\nChecks: browser Playwright smoke completed before packaging; Android emulator smoke runs after packaging\nBilling: mocked JS bridge only; real Play purchases and restore not verified\nAndroid: emulator install/launch/back/relaunch test runs after packaging; see separate ANDROID-SMOKE-LOG artifact\nAAB: unsigned; requires correct upload key signing before Play upload\nPlay review: not submitted\n' "$GITHUB_SHA" "$GITHUB_RUN_ID" > review-package/BUILD-REPORT.txt
           sha256sum android/app/build/outputs/apk/debug/app-debug.apk android/app/build/outputs/bundle/release/app-release.aab > review-package/SHA256SUMS.txt
       - name: Upload source backup and build report
         uses: actions/upload-artifact@v4
