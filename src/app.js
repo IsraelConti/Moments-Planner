@@ -89,6 +89,14 @@ $("#manageSubscription").onclick=()=>android()?.manageSubscription?android().man
 function go(screen,push=true){
   if(!["home","projectForm","settings","help"].includes(screen)&&!current()){toast("Primero abre o crea un proyecto");screen="home";}
   if(push&&screen!==currentScreen)historyStack.push(currentScreen);
+  if(screen!==currentScreen){
+    document.querySelectorAll("form[data-editing-id]").forEach(form=>{
+      delete form.dataset.editingId;
+      form.reset();
+      const submit=form.querySelector('button[type="submit"],button:not([type])');
+      if(submit?.dataset.defaultLabel){submit.textContent=submit.dataset.defaultLabel;delete submit.dataset.defaultLabel;}
+    });
+  }
   currentScreen=screen;
   document.querySelectorAll(".screen").forEach(x=>x.classList.toggle("active",x.dataset.screen===screen));
   $("#screenTitle").textContent=titles[screen]||"Moments Planner";
