@@ -113,6 +113,10 @@ jobs:
             sleep 12
             adb shell pidof com.momentsplanner.events
             adb shell dumpsys activity activities > android-smoke-activity.txt
+            adb shell uiautomator dump /sdcard/moments-ui.xml || true
+            adb shell cat /sdcard/moments-ui.xml > android-smoke-ui.xml || true
+            adb shell screencap -p /sdcard/moments-screen.png
+            adb pull /sdcard/moments-screen.png android-smoke-screen.png
             grep -q "com.momentsplanner.events" android-smoke-activity.txt || { echo "Moments Planner not present in activity state"; exit 1; }
             adb shell input keyevent 4
             sleep 2
@@ -128,5 +132,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: Moments-Planner-ANDROID-SMOKE-LOG
-          path: android-smoke-logcat.txt
+          path: |
+            android-smoke-logcat.txt
+            android-smoke-activity.txt
+            android-smoke-ui.xml
+            android-smoke-screen.png
           if-no-files-found: ignore
