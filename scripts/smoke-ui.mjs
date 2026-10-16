@@ -24,6 +24,18 @@ if(!(await page.locator('#paywall').isVisible()))throw Error('El paywall no apar
 await page.evaluate(()=>{window.__billingCalls=[];window.Android.subscribeMonthly=()=>window.__billingCalls.push('subscribe');window.Android.restorePurchases=()=>window.__billingCalls.push('restore');});
 const paywallButtons=await page.locator('#paywall button').evaluateAll(els=>els.map(e=>({id:e.id,text:e.textContent.trim()})));
 console.log('Paywall buttons:',JSON.stringify(paywallButtons));
+// Check every paywall action using the real DOM handlers and a mocked native bridge.
+await page.evaluate(()=>window.onMomentsOffer('4,99 €',false));
+if(await page.locator('#subscribeBtn').isDisabled())throw Error('Suscribirme no se habilita cuando existe una oferta');
+await page.locator('#subscribeBtn').click();
+await page.locator('#restorePurchase').click();
+await page.locator('#closePaywall').click();
+await page.locator('#exitPaywall').click();
+const billingCalls=await page.evaluate(()=>window.__billingCalls);
+if(JSON.stringify(billingCalls)!==JSON.stringify(['subscribe','restore']))throw Error('Suscripción/restauración no invocan el puente Android: '+JSON.stringify(billingCalls));
+await page.evaluate(()=>window.onMomentsOfferUnavailable('Sin oferta'));
+if(!(await page.locator('#subscribeBtn').isDisabled()))throw Error('El botón de compra sigue activo sin oferta');
+await page.evaluate(()=>window.onMomentsOffer('4,99 €',false));
 await page.evaluate(()=>window.onMomentsSubscription(true,'','Suscripción de prueba'));
 if(await page.locator('#paywall').isVisible())throw Error('El paywall no se oculta al restaurar una suscripción válida');
 // Verify that a real project can be created and becomes the active dashboard.
