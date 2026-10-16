@@ -45,6 +45,21 @@ for(const [screen,form,fields,list,needle] of [
   await page.locator('#'+form+' button').first().click();
   if(!(await page.locator('#'+list).innerText()).includes(needle))throw Error('No se agregó '+needle);
 }
+// Exercise destructive actions on test-only records and the project lifecycle.
+await page.evaluate(()=>document.querySelector('[data-go="guests"]').click());
+page.once('dialog',dialog=>dialog.accept());
+await page.locator('#guestList [data-delete]').first().click();
+if((await page.locator('#guestList').innerText()).includes('Invitado de prueba'))throw Error('Eliminar invitado no actualiza la lista');
+await page.evaluate(()=>document.querySelector('[data-go="dashboard"]').click());
+await page.locator('#duplicateProject').click();
+await page.evaluate(()=>document.querySelector('[data-go="home"]').click());
+if(await page.locator('[data-open]').count()!==2)throw Error('Duplicar proyecto no crea una segunda tarjeta');
+await page.locator('[data-open]').first().click();
+page.once('dialog',dialog=>dialog.accept());
+await page.locator('#deleteProject').click();
+if(await page.locator('[data-open]').count()!==1)throw Error('Eliminar proyecto no retira la copia');
+await page.locator('[data-open]').first().click();
+if(await page.locator('.screen.active').getAttribute('data-screen')!=='dashboard')throw Error('No se puede reabrir el proyecto original tras eliminar la copia');
 // Save user preferences and verify they survive a full reload.
 await page.evaluate(()=>document.querySelector('[data-go="settings"]').click());
 await page.locator('#settingsForm [name="currency"]').selectOption('GBP');
