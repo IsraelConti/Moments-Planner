@@ -25,6 +25,8 @@ jobs:
           test -s src/app-icon.b64
       - name: Apply Moments Expert professional enhancements
         run: node scripts/enhance-moments.mjs
+      - name: Check enhanced JavaScript syntax
+        run: node --check src/app.js
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
