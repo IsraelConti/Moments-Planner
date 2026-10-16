@@ -83,7 +83,7 @@ jobs:
             sleep 12
             adb shell pidof com.momentsplanner.events
             adb logcat -d -t 5000 -v brief > android-smoke-logcat.txt
-            if grep -E 'FATAL EXCEPTION|Process: com.momentsplanner.events' android-smoke-logcat.txt | grep -q 'FATAL EXCEPTION'; then exit 1; fi
+            if grep -A 12 'FATAL EXCEPTION' android-smoke-logcat.txt | grep -q 'Process: com.momentsplanner.events'; then echo 'Moments Planner Android crash detected'; exit 1; fi
       - name: Upload Android emulator smoke log
         if: always()
         uses: actions/upload-artifact@v4
