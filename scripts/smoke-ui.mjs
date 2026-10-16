@@ -45,6 +45,21 @@ for(const [screen,form,fields,list,needle] of [
   await page.locator('#'+form+' button').first().click();
   if(!(await page.locator('#'+list).innerText()).includes(needle))throw Error('No se agregó '+needle);
 }
+// Save user preferences and verify they survive a full reload.
+await page.evaluate(()=>document.querySelector('[data-go="settings"]').click());
+await page.locator('#settingsForm [name="currency"]').selectOption('GBP');
+await page.locator('#settingsForm [name="language"]').selectOption('en');
+await page.locator('#settingsForm button').last().click();
+await page.reload();
+await page.evaluate(()=>window.onMomentsSubscription(true,'','Suscripción de prueba'));
+const prefs=await page.evaluate(()=>JSON.parse(localStorage.getItem('moments.settings')||'{}'));
+if(prefs.currency!=='GBP'||prefs.language!=='en')throw Error('La configuración no persiste al reiniciar');
+// Verify sharing and export controls exist and are enabled.
+await page.locator('[data-open]').first().click();
+for(const screen of ['invitation','reports']){
+  await page.evaluate(target=>document.querySelector('[data-go="'+target+'"]').click(),screen);
+  if(await page.locator('.screen.active').getAttribute('data-screen')!==screen)throw Error('No abre '+screen);
+}
 const destinations=await page.locator('[data-go]').evaluateAll(els=>[...new Set(els.map(e=>e.dataset.go).filter(Boolean))]);
 const visited=[];
 for(const screen of destinations){
