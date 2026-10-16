@@ -50,6 +50,14 @@ await page.reload();
 await page.evaluate(()=>window.onMomentsSubscription(true,'','Suscripción de prueba'));
 await page.locator('[data-open]').first().click();
 if(await page.locator('.screen.active').getAttribute('data-screen')!=='dashboard')throw Error('El proyecto no persiste tras recargar');
+// Editing an existing project must retain its identifier and collections.
+const beforeEdit=await page.evaluate(()=>JSON.parse(localStorage.getItem('moments.planner.v2'))[0]);
+await page.locator('#editProject').click();
+await page.locator('#projectForm [name="name"]').fill('Boda editada y comprobada');
+await page.locator('#projectForm button[type="submit"], #projectForm button:not([type])').last().click();
+const afterEdit=await page.evaluate(()=>JSON.parse(localStorage.getItem('moments.planner.v2'))[0]);
+if(afterEdit.id!==beforeEdit.id||afterEdit.name!=='Boda editada y comprobada')throw Error('Editar proyecto creó otro registro o no guardó cambios');
+if(afterEdit.guests.length!==beforeEdit.guests.length)throw Error('Editar proyecto borró invitados');
 // Exercise actual forms and persisted project records, not only navigation.
 for(const [screen,form,fields,list,needle] of [
   ['guests','guestForm',{name:'Invitado de prueba'},'guestList','Invitado de prueba'],
