@@ -13,7 +13,7 @@ function normalizeProject(p){
   collections.guests=collections.guests.map(g=>({...g,seats:Number(g.seats||1),tableId:g.tableId||""}));
   return {...p,...collections,contingency:{planB:"",transport:"",emergencyContact:"",accessibility:"",operations:"",...(p?.contingency||{})}};
 }
-let projects=(localStorage.getItem(KEY)?readJson(KEY,[]):readJson(OLD_KEY,[])).map(normalizeProject);
+let projects=(Array.isArray(localStorage.getItem(KEY)?readJson(KEY,[]):readJson(OLD_KEY,[]))?(localStorage.getItem(KEY)?readJson(KEY,[]):readJson(OLD_KEY,[])):[]).map(normalizeProject);
 let settings={...defaultSettings,...(localStorage.getItem(SETTINGS)?readJson(SETTINGS,defaultSettings):readJson(OLD_SETTINGS,defaultSettings))};
 let currentId=localStorage.getItem("moments.current")||"";
 let currentScreen="home", historyStack=[];
