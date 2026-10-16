@@ -73,11 +73,27 @@ for(const [screen,form,fields,list,needle] of [
   await page.locator('#'+form+' button').first().click();
   if(!(await page.locator('#'+list).innerText()).includes(needle))throw Error('No se agregó '+needle);
 }
+// Edit all six collections and verify changes survive in the visible lists.
+for(const [screen,form,list,field,newValue] of [
+  ['guests','guestForm','guestList','name','Invitado editado'],
+  ['tasks','taskForm','taskList','title','Tarea editada'],
+  ['budget','expenseForm','expenseList','concept','Gasto editado'],
+  ['vendors','vendorForm','vendorList','name','Proveedor editado'],
+  ['tables','tableForm','tableList','name','Mesa editada'],
+  ['schedule','scheduleForm','scheduleList','title','Ceremonia editada']
+]){
+  await page.evaluate(target=>document.querySelector('[data-go="'+target+'"]').click(),screen);
+  await page.locator('#'+list+' [data-edit-item]').first().click();
+  await page.locator('#'+form+' [name="'+field+'"]').fill(newValue);
+  await page.locator('#'+form+' button').first().click();
+  if(!(await page.locator('#'+list).innerText()).includes(newValue))throw Error('Editar registro no guardó: '+screen);
+  if(await page.locator('#'+list+' [data-edit-item]').count()!==1)throw Error('Editar registro duplicó: '+screen);
+}
 // Exercise destructive actions on test-only records and the project lifecycle.
 await page.evaluate(()=>document.querySelector('[data-go="guests"]').click());
 page.once('dialog',dialog=>dialog.accept());
 await page.locator('#guestList [data-delete]').first().click();
-if((await page.locator('#guestList').innerText()).includes('Invitado de prueba'))throw Error('Eliminar invitado no actualiza la lista');
+if((await page.locator('#guestList').innerText()).includes('Invitado editado'))throw Error('Eliminar invitado no actualiza la lista');
 await page.evaluate(()=>document.querySelector('[data-go="home"]').click());
 await page.locator('[data-open]').first().click();
 await page.locator('#duplicateProject').click();
