@@ -26,6 +26,10 @@ for(const screen of destinations){
   await btn.evaluate(el=>el.click());
   await page.waitForTimeout(60);
   if(errors.length)throw Error('Error al navegar a '+screen+': '+errors.join('; '));
+  const actual=await page.locator('.screen.active').first().getAttribute('data-screen');
+  if(actual!==screen && !(actual==='home' && !['home','projectForm','settings','help'].includes(screen))){
+    throw Error('Navegación incorrecta: botón '+screen+' mostró '+actual);
+  }
   visited.push(screen);
 }
 if(visited.length<5)throw Error('Cobertura insuficiente: '+visited.length+' pantallas');
