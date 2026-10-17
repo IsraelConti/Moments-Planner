@@ -48,8 +48,11 @@ jobs:
         with:
           distribution: temurin
           java-version: "17"
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
+      - name: Verify preinstalled Android SDK
+        run: |
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          command -v sdkmanager
+          sdkmanager --version
       - name: Install Android API 36
         run: sdkmanager "platforms;android-36" "build-tools;36.0.0"
       - name: Setup Gradle
