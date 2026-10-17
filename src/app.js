@@ -8,23 +8,26 @@ const defaultSettings={appName:"Moments Planner",companyName:"",language:"es",cu
 const readJson=(key,fallback)=>{try{return JSON.parse(localStorage.getItem(key)||JSON.stringify(fallback));}catch{return fallback;}};
 const blankCollections=()=>({guests:[],tasks:[],expenses:[],vendors:[],schedule:[],tables:[]});
 function normalizeProject(p){
+  if(!p||typeof p!=="object"||Array.isArray(p))p={};
   const collections=blankCollections();
   Object.keys(collections).forEach(k=>collections[k]=Array.isArray(p?.[k])?p[k]:[]);
   collections.guests=collections.guests.map(g=>({...g,seats:Number(g.seats||1),tableId:g.tableId||""}));
   return {...p,...collections,contingency:{planB:"",transport:"",emergencyContact:"",accessibility:"",operations:"",...(p?.contingency||{})}};
 }
-let projects=(localStorage.getItem(KEY)?readJson(KEY,[]):readJson(OLD_KEY,[])).map(normalizeProject);
-let settings={...defaultSettings,...(localStorage.getItem(SETTINGS)?readJson(SETTINGS,defaultSettings):readJson(OLD_SETTINGS,defaultSettings))};
+const storedProjects=localStorage.getItem(KEY)?readJson(KEY,[]):readJson(OLD_KEY,[]);
+let projects=(Array.isArray(storedProjects)?storedProjects:[]).map(normalizeProject);
+const storedSettings=localStorage.getItem(SETTINGS)?readJson(SETTINGS,defaultSettings):readJson(OLD_SETTINGS,defaultSettings);
+let settings={...defaultSettings,...(storedSettings&&typeof storedSettings==="object"&&!Array.isArray(storedSettings)?storedSettings:{})};
 let currentId=localStorage.getItem("moments.current")||"";
-let currentScreen="home", historyStack=[];
+let currentScreen="home", historyStack=[], editingProjectId=null;
 const titles={home:"Bodas y eventos",projectForm:"Nuevo proyecto",dashboard:"Panel del proyecto",guests:"Invitados",tasks:"Tareas y fechas",budget:"Presupuesto",vendors:"Proveedores",schedule:"Agenda del día",tables:"Mesas",contingency:"Plan B y seguridad",assistant:"Moments IA",invitation:"Invitación y QR",reports:"Informes",help:"Información y ayuda",settings:"Configuración"};
 const current=()=>projects.find(p=>p.id===currentId);
 const uid=()=>globalThis.crypto?.randomUUID?.()||("id-"+Date.now()+"-"+Math.random().toString(16).slice(2));
 const esc=v=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c]));
-const locale=()=>settings.language||"es";
+const locale=()=>({es:"es-ES",en:"en-US",fr:"fr-FR",de:"de-DE",it:"it-IT",pt:"pt-PT"}[settings.language]||"es-ES");
 const fmt=n=>new Intl.NumberFormat(locale(),{style:"currency",currency:settings.currency||"EUR"}).format(Number(n||0));
 const date=v=>v?new Intl.DateTimeFormat(locale(),{dateStyle:"medium"}).format(new Date(v+"T12:00:00")):"Sin fecha";
-const todayIso=()=>new Date().toISOString().slice(0,10);
+const todayIso=()=>{const d=new Date();return [d.getFullYear(),String(d.getMonth()+1).padStart(2,"0"),String(d.getDate()).padStart(2,"0")].join("-");};
 const daysBetween=(a,b)=>Math.ceil((new Date(b+"T12:00:00")-new Date(a+"T12:00:00"))/86400000);
 const normalizeText=v=>String(v||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().trim();
 const android=()=>window.MomentsAndroid;
@@ -42,51 +45,98 @@ function downloadBlob(content,type,name){
 }
 
 window.onMomentsOffer=(price,hasTrial)=>{
+  if(!price){window.onMomentsOfferUnavailable("El plan no está disponible en Google Play. Inténtalo más tarde.");return;}
   $("#planHeadline").textContent=hasTrial?"3 días gratis":"Suscripción mensual";
   $("#subscriptionPrice").textContent=hasTrial?"Después, "+price+" al mes":price+" al mes";
   $("#subscriptionTerms").textContent=hasTrial?"Después se renueva automáticamente cada mes. Cancela durante la prueba desde Google Play y no se realizará ningún cobro.":"Se renueva automáticamente cada mes y puedes cancelar desde Google Play.";
   $("#subscribeBtn").textContent=hasTrial?"Probar 3 días gratis":"Suscribirme por "+price+" al mes";
+  $("#subscribeBtn").disabled=false;
+  $("#paywallStatus").textContent=hasTrial?"Google Play ofrece una prueba gratuita de 3 días y después "+price+" al mes.":"Precio de Google Play: "+price+" al mes.";
+};
+window.onMomentsOfferUnavailable=message=>{
+  $("#planHeadline").textContent="Suscripción no disponible";
+  $("#subscriptionPrice").textContent="No hay precio disponible";
+  $("#subscriptionTerms").textContent="No se puede iniciar una compra hasta que Google Play devuelva un precio y unas condiciones válidas.";
+  $("#subscribeBtn").disabled=true;
+  $("#paywallStatus").textContent=message||"No se pudo consultar el producto en Google Play.";
 };
 window.onMomentsSubscription=(active,price,message)=>{
-  if(price)window.onMomentsOffer(price,false);
+  // Subscription status must not overwrite the exact Play offer, trial, or localized price.
+  // Only the product-details callback can set the purchase offer displayed to users.
   $("#subscriptionStatus").textContent=active?"Suscripción mensual activa":(message||"Suscripción necesaria");
   $("#paywall").classList.toggle("hidden",!!active);
+  if(!active&&!price)$("#paywallStatus").textContent=message||"Se necesita una suscripción activa para usar Moments Planner.";
 };
-window.onMomentsPurchaseError=message=>toast(message||"No se pudo completar la operación con Google Play");
+window.onMomentsPurchaseError=message=>{
+  const text=message||"No se pudo completar la operación con Google Play";
+  $("#paywallStatus").textContent=text;
+  toast(text);
+};
 window.onMomentsFileSaved=(success,name)=>toast(success?"Archivo guardado: "+name:"No se pudo guardar el archivo");
-$("#subscribeBtn").onclick=()=>android()?.subscribeMonthly?android().subscribeMonthly():toast("La suscripción se activa desde Google Play");
-$("#restorePurchase").onclick=()=>android()?.restorePurchases?android().restorePurchases():toast("Abre la app instalada desde Google Play");
+$("#subscribeBtn").onclick=()=>{
+  if($("#subscribeBtn").disabled)return;
+  if(android()?.subscribeMonthly)android().subscribeMonthly();
+  else {$("#paywallStatus").textContent="La compra solo está disponible en la aplicación Android de Google Play.";toast("Instala Moments Planner desde Google Play para suscribirte");}
+};
+$("#restorePurchase").onclick=()=>{
+  if(android()?.restorePurchases)android().restorePurchases();
+  else {$("#paywallStatus").textContent="La restauración de compras solo está disponible en Android.";toast("Abre Moments Planner en Android para restaurar la compra");}
+};
+const exitApp=()=>{if(android()?.exitApp){android().exitApp();return;}toast("Para salir, utiliza Atrás o cierra esta pestaña");};
+$("#closePaywall").onclick=exitApp;
+$("#exitPaywall").onclick=exitApp;
 $("#manageSubscription").onclick=()=>android()?.manageSubscription?android().manageSubscription():toast("Gestiona la suscripción desde Google Play");
 
 function go(screen,push=true){
   if(!["home","projectForm","settings","help"].includes(screen)&&!current()){toast("Primero abre o crea un proyecto");screen="home";}
   if(push&&screen!==currentScreen)historyStack.push(currentScreen);
+  if(screen!==currentScreen){
+    document.querySelectorAll("form[data-editing-id]").forEach(form=>{
+      delete form.dataset.editingId;
+      form.reset();
+      const submit=form.querySelector('button[type="submit"],button:not([type])');
+      if(submit?.dataset.defaultLabel){submit.textContent=submit.dataset.defaultLabel;delete submit.dataset.defaultLabel;}
+    });
+  }
   currentScreen=screen;
-  $$(".screen").forEach(x=>x.classList.toggle("active",x.dataset.screen===screen));
+  document.querySelectorAll(".screen").forEach(x=>x.classList.toggle("active",x.dataset.screen===screen));
   $("#screenTitle").textContent=titles[screen]||"Moments Planner";
   $("#backBtn").classList.toggle("hidden",screen==="home");
-  $$(".bottom-nav button").forEach(x=>x.classList.toggle("active",x.dataset.go===screen));
+  document.querySelectorAll(".bottom-nav button").forEach(x=>x.classList.toggle("active",x.dataset.go===screen));
   renderAll();scrollTo(0,0);
 }
-function back(){go(historyStack.pop()||"home",false);}
+function back(){const previous=historyStack.pop();go(previous&&titles[previous]?previous:"home",false);}
 $("#backBtn").addEventListener("click",back);
-$$("[data-back]").forEach(b=>b.addEventListener("click",back));
-$$("[data-go]").forEach(b=>b.addEventListener("click",()=>go(b.dataset.go)));
+document.querySelectorAll("[data-back]").forEach(b=>b.addEventListener("click",back));
+document.querySelectorAll("[data-go]").forEach(b=>b.addEventListener("click",()=>go(b.dataset.go)));
 window.onAndroidBack=()=>{if(currentScreen==="home")return false;back();return true;};
 
-$$("[data-new-project]").forEach(b=>b.addEventListener("click",()=>{
+document.querySelectorAll("[data-new-project]").forEach(b=>b.addEventListener("click",()=>{
   const type=b.dataset.newProject;
-  $("#projectForm").reset();$("#projectForm [name=type]").value=type;
+  editingProjectId=null;$("#projectForm").reset();$("#projectForm [name=type]").value=type;
   $("#projectFormTitle").textContent=type==="wedding"?"Nueva boda":"Nuevo evento";
   $("#projectEyebrow").textContent=type==="wedding"?"PLANIFICADOR DE BODAS":"ORGANIZADOR DE EVENTOS";
   $("#weddingCoupleField").classList.toggle("hidden",type!=="wedding");
   $("#eventTypeField").classList.toggle("hidden",type!=="event");
   go("projectForm");
 }));
+$("#editProject").onclick=()=>{
+  const p=current();if(!p)return;
+  editingProjectId=p.id;
+  const form=$("#projectForm");form.reset();
+  for(const el of form.elements){if(el.name&&Object.prototype.hasOwnProperty.call(p,el.name))el.value=p[el.name]??"";}
+  $("#projectFormTitle").textContent="Editar proyecto";
+  $("#projectEyebrow").textContent="ACTUALIZAR DATOS";
+  $("#weddingCoupleField").classList.toggle("hidden",p.type!=="wedding");
+  $("#eventTypeField").classList.toggle("hidden",p.type!=="event");
+  go("projectForm");
+};
 $("#projectForm").addEventListener("submit",e=>{
   e.preventDefault();const data=Object.fromEntries(new FormData(e.currentTarget));
-  const project=normalizeProject({...data,id:uid(),createdAt:new Date().toISOString()});
-  projects.unshift(project);currentId=project.id;localStorage.setItem("moments.current",currentId);save();historyStack=["home"];go("dashboard",false);toast(project.type==="wedding"?"Boda creada":"Evento creado");
+  const existing=editingProjectId?projects.find(p=>p.id===editingProjectId):null;
+  const project=normalizeProject(existing?{...existing,...data}:{...data,id:uid(),createdAt:new Date().toISOString()});
+  if(existing){projects=projects.map(p=>p.id===existing.id?project:p);}else{projects.unshift(project);}
+  editingProjectId=null;currentId=project.id;localStorage.setItem("moments.current",currentId);save();historyStack=["home"];go("dashboard",false);toast(existing?"Proyecto actualizado":project.type==="wedding"?"Boda creada":"Evento creado");
 });
 
 function projectSeats(p,status){
@@ -124,7 +174,7 @@ function renderProjects(){
     const r=readiness(p);
     return '<article class="project-card '+esc(p.type)+'"><span class="project-icon"><svg><use href="#'+(p.type==="wedding"?"rings":"party")+'"/></svg></span><div><b>'+esc(p.name)+'</b><small>'+(p.type==="wedding"?"Boda":"Evento")+' · '+date(p.date)+' · '+esc(p.venue||"Lugar pendiente")+'</small><span class="progress"><i style="width:'+r.score+'%"></i></span></div><span class="score-label">'+r.score+'%</span><button class="btn" data-open="'+p.id+'">Abrir</button></article>';
   }).join(""):'<div class="empty"><h3>Aún no hay proyectos</h3><p>Crea tu primera boda o evento con los botones superiores.</p></div>';
-  $$("[data-open]").forEach(b=>b.onclick=()=>{currentId=b.dataset.open;localStorage.setItem("moments.current",currentId);go("dashboard");});
+  document.querySelectorAll("[data-open]").forEach(b=>b.onclick=()=>{currentId=b.dataset.open;localStorage.setItem("moments.current",currentId);go("dashboard");});
 }
 function renderDashboard(){
   const p=current();if(!p)return;
@@ -148,17 +198,21 @@ function renderDashboard(){
     ["reports","calendar","Informes","Excel y copia profesional"]
   ];
   $("#dashboardActions").innerHTML=actions.map(a=>'<button class="action '+(a[0]==="assistant"?"ai-action":"")+'" data-go="'+a[0]+'"><svg><use href="#'+a[1]+'"/></svg><b>'+a[2]+'</b><small>'+a[3]+'</small></button>').join("");
-  $$("#dashboardActions [data-go]").forEach(b=>b.onclick=()=>go(b.dataset.go));
+  document.querySelectorAll("#dashboardActions [data-go]").forEach(b=>b.onclick=()=>go(b.dataset.go));
 }
 
 function addCollection(form,key,extra={}){
   form.addEventListener("submit",e=>{
     e.preventDefault();const p=current();if(!p)return;
-    const item={...Object.fromEntries(new FormData(form)),...extra,id:uid(),createdAt:new Date().toISOString()};
+    const existingId=form.dataset.editingId;
+    const existing=existingId?p[key].find(x=>x.id===existingId):null;
+    const item={...(existing||{}),...Object.fromEntries(new FormData(form)),...(existing?{}:extra),id:existing?.id||uid(),createdAt:existing?.createdAt||new Date().toISOString()};
     if(key==="guests")item.seats=Math.max(1,Number(item.seats||1));
-    p[key].push(item);save();form.reset();
+    if(existing)p[key]=p[key].map(x=>x.id===existing.id?item:x);else p[key].push(item);
+    delete form.dataset.editingId;save();form.reset();
     if(key==="guests")form.elements.seats.value=1;
-    toast("Guardado correctamente");
+    const submit=form.querySelector('button[type="submit"],button:not([type])');if(submit?.dataset.defaultLabel){submit.textContent=submit.dataset.defaultLabel;delete submit.dataset.defaultLabel;}
+    toast(existing?"Registro actualizado":"Guardado correctamente");
   });
 }
 addCollection($("#guestForm"),"guests");
@@ -175,43 +229,53 @@ function del(key,id){
   if(key==="tables")p.guests.forEach(g=>{if(g.tableId===id)g.tableId="";});
   save();toast("Registro eliminado");
 }
-function bindDeletes(){$$("[data-delete]").forEach(b=>b.onclick=()=>{const [key,id]=b.dataset.delete.split(":");if(confirm("¿Eliminar este registro?"))del(key,id);});}
+function editCollection(key,id){
+  const p=current();const item=p?.[key]?.find(x=>x.id===id);if(!item)return;
+  const forms={guests:"guestForm",tasks:"taskForm",expenses:"expenseForm",vendors:"vendorForm",schedule:"scheduleForm",tables:"tableForm"};
+  const form=$("#"+forms[key]);if(!form)return;
+  form.reset();form.dataset.editingId=id;
+  for(const el of form.elements){if(el.name&&Object.prototype.hasOwnProperty.call(item,el.name))el.value=item[el.name]??"";}
+  const submit=form.querySelector('button[type="submit"],button:not([type])');
+  if(submit){if(!submit.dataset.defaultLabel)submit.dataset.defaultLabel=submit.textContent;submit.textContent="Guardar cambios";}
+  form.scrollIntoView({behavior:"smooth",block:"start"});
+}
+function bindDeletes(){document.querySelectorAll("[data-edit-item]").forEach(b=>b.onclick=()=>{const [key,id]=b.dataset.editItem.split(":");editCollection(key,id);});document.querySelectorAll("[data-delete]").forEach(b=>b.onclick=()=>{const [key,id]=b.dataset.delete.split(":");if(confirm("¿Eliminar este registro?"))del(key,id);});}
 function tableOptions(p,selected){return'<option value="">Sin mesa</option>'+p.tables.map(t=>'<option value="'+t.id+'" '+(t.id===selected?"selected":"")+'>'+esc(t.name)+'</option>').join("");}
 function renderGuests(){
   const p=current();if(!p)return;
   const confirmed=projectSeats(p,"confirmed"),pending=projectSeats(p,"pending"),declined=projectSeats(p,"declined"),special=p.guests.filter(g=>g.menu?.trim()).length;
   $("#guestSummary").innerHTML='<div><small>Confirmados</small><b>'+confirmed+'</b></div><div><small>Pendientes</small><b>'+pending+'</b></div><div><small>No asistirán</small><b>'+declined+'</b></div><div><small>Necesidades</small><b>'+special+'</b></div>';
-  $("#guestList").innerHTML=p.guests.length?p.guests.map(g=>'<article class="row guest-row"><div><b>'+esc(g.name)+' <em>'+Number(g.seats||1)+' plaza'+(Number(g.seats||1)===1?"":"s")+'</em></b><small>'+esc(g.group||"Sin grupo")+' · '+esc(g.phone||"Sin teléfono")+' · '+esc(g.menu||"Sin necesidades indicadas")+'</small><select data-guest-table="'+g.id+'">'+tableOptions(p,g.tableId)+'</select></div><span class="badge '+esc(g.status)+'">'+(g.status==="confirmed"?"Confirmado":g.status==="declined"?"No asistirá":"Pendiente")+'</span><button class="mini danger" data-delete="guests:'+g.id+'">×</button></article>').join(""):empty("Añade invitados y controla sus confirmaciones.");
-  $$("[data-guest-table]").forEach(s=>s.onchange=()=>{const g=p.guests.find(x=>x.id===s.dataset.guestTable);if(g){g.tableId=s.value;save();toast("Mesa asignada");}});
+  $("#guestList").innerHTML=p.guests.length?p.guests.map(g=>'<article class="row guest-row"><div><b>'+esc(g.name)+' <em>'+Number(g.seats||1)+' plaza'+(Number(g.seats||1)===1?"":"s")+'</em></b><small>'+esc(g.group||"Sin grupo")+' · '+esc(g.phone||"Sin teléfono")+' · '+esc(g.menu||"Sin necesidades indicadas")+'</small><select data-guest-table="'+g.id+'">'+tableOptions(p,g.tableId)+'</select></div><span class="badge '+esc(g.status)+'">'+(g.status==="confirmed"?"Confirmado":g.status==="declined"?"No asistirá":"Pendiente")+'</span><button class="mini" data-edit-item="guests:'+ g.id+'">Editar</button><button class="mini danger" data-delete="guests:'+ g.id+'">×</button></article>').join(""):empty("Añade invitados y controla sus confirmaciones.");
+  document.querySelectorAll("[data-guest-table]").forEach(s=>s.onchange=()=>{const g=p.guests.find(x=>x.id===s.dataset.guestTable);if(g){g.tableId=s.value;save();toast("Mesa asignada");}});
 }
 function renderTasks(){
   const p=current();if(!p)return;
   $("#taskList").innerHTML=p.tasks.length?[...p.tasks].sort((a,b)=>(a.dueDate||"").localeCompare(b.dueDate||"")).map(t=>{
     const overdue=!t.done&&t.dueDate&&t.dueDate<todayIso();
-    return '<article class="row '+(t.done?"done ":"")+(overdue?"overdue":"")+'"><button class="check" data-done="'+t.id+'">'+(t.done?"✓":"")+'</button><div><b>'+esc(t.title)+'</b><small>'+date(t.dueDate)+' · '+esc(t.category||"General")+' · '+esc(t.responsible||"Sin responsable")+' · '+esc(t.priority)+'</small></div><button class="mini danger" data-delete="tasks:'+t.id+'">×</button></article>';
+    return '<article class="row '+(t.done?"done ":"")+(overdue?"overdue":"")+'"><button class="check" data-done="'+t.id+'">'+(t.done?"✓":"")+'</button><div><b>'+esc(t.title)+'</b><small>'+date(t.dueDate)+' · '+esc(t.category||"General")+' · '+esc(t.responsible||"Sin responsable")+' · '+esc(t.priority)+'</small></div><button class="mini" data-edit-item="tasks:'+ t.id+'">Editar</button><button class="mini danger" data-delete="tasks:'+ t.id+'">×</button></article>';
   }).join(""):empty("Añade tareas o deja que Moments IA cree un plan maestro.");
-  $$("[data-done]").forEach(b=>b.onclick=()=>{const t=p.tasks.find(x=>x.id===b.dataset.done);t.done=!t.done;save();});
+  document.querySelectorAll("[data-done]").forEach(b=>b.onclick=()=>{const t=p.tasks.find(x=>x.id===b.dataset.done);t.done=!t.done;save();});
 }
 function renderBudget(){
   const p=current();if(!p)return;
   const total=p.expenses.reduce((a,x)=>a+Number(x.amount||0),0),paid=p.expenses.reduce((a,x)=>a+Number(x.paid||0),0),max=Number(p.budget||0);
   $("#budgetSummary").innerHTML='<div><small>Presupuesto</small><b>'+fmt(max)+'</b></div><div><small>Comprometido</small><b>'+fmt(total)+'</b></div><div><small>Pendiente pago</small><b>'+fmt(total-paid)+'</b></div><div><small>Disponible</small><b class="'+(max-total<0?"danger-text":"")+'">'+fmt(max-total)+'</b></div>';
-  $("#expenseList").innerHTML=p.expenses.length?p.expenses.map(x=>'<article class="row"><div><b>'+esc(x.concept)+'</b><small>'+esc(x.category||"Otros")+' · Pagado '+fmt(x.paid)+' · Vence '+date(x.dueDate)+'</small></div><strong>'+fmt(x.amount)+'</strong><button class="mini danger" data-delete="expenses:'+x.id+'">×</button></article>').join(""):empty("Registra presupuestos, señales y pagos.");
+  $("#expenseList").innerHTML=p.expenses.length?p.expenses.map(x=>'<article class="row"><div><b>'+esc(x.concept)+'</b><small>'+esc(x.category||"Otros")+' · Pagado '+fmt(x.paid)+' · Vence '+date(x.dueDate)+'</small></div><strong>'+fmt(x.amount)+'</strong><button class="mini" data-edit-item="expenses:'+ x.id+'">Editar</button><button class="mini danger" data-delete="expenses:'+ x.id+'">×</button></article>').join(""):empty("Registra presupuestos, señales y pagos.");
 }
 function renderVendors(){
   const p=current();if(!p)return;
   const labels={candidate:"Candidato",quoted:"Presupuesto",booked:"Contratado",discarded:"Descartado"};
-  $("#vendorList").innerHTML=p.vendors.length?p.vendors.map(v=>'<article class="row"><div><b>'+esc(v.name)+'</b><small>'+esc(v.service)+' · '+esc(v.contact||"Sin contacto")+' · '+(v.quote?fmt(v.quote):"Sin precio")+' · '+esc(v.notes||"")+'</small></div><span class="badge '+esc(v.status||"candidate")+'">'+(labels[v.status]||"Candidato")+'</span><button class="mini danger" data-delete="vendors:'+v.id+'">×</button></article>').join(""):empty("Añade finca, catering, música, fotografía, decoración, transporte y demás servicios.");
+  $("#vendorList").innerHTML=p.vendors.length?p.vendors.map(v=>'<article class="row"><div><b>'+esc(v.name)+'</b><small>'+esc(v.service)+' · '+esc(v.contact||"Sin contacto")+' · '+(v.quote?fmt(v.quote):"Sin precio")+' · '+esc(v.notes||"")+'</small></div><span class="badge '+esc(v.status||"candidate")+'">'+(labels[v.status]||"Candidato")+'</span><button class="mini" data-edit-item="vendors:'+ v.id+'">Editar</button><button class="mini danger" data-delete="vendors:'+ v.id+'">×</button></article>').join(""):empty("Añade finca, catering, música, fotografía, decoración, transporte y demás servicios.");
 }
 function renderSchedule(){
   const p=current();if(!p)return;
-  $("#scheduleList").innerHTML=p.schedule.length?[...p.schedule].sort((a,b)=>(a.time||"").localeCompare(b.time||"")).map(x=>'<article><time>'+esc(x.time)+(x.endTime?"–"+esc(x.endTime):"")+'</time><div><b>'+esc(x.title)+'</b><small>'+esc(x.place||"Lugar pendiente")+' · '+esc(x.responsible||"Sin responsable")+'</small></div><button class="mini danger" data-delete="schedule:'+x.id+'">×</button></article>').join(""):empty("Construye el cronograma completo del gran día.");
+  $("#scheduleList").innerHTML=p.schedule.length?[...p.schedule].sort((a,b)=>(a.time||"").localeCompare(b.time||"")).map(x=>'<article><time>'+esc(x.time)+(x.endTime?"–"+esc(x.endTime):"")+'</time><div><b>'+esc(x.title)+'</b><small>'+esc(x.place||"Lugar pendiente")+' · '+esc(x.responsible||"Sin responsable")+'</small></div><button class="mini" data-edit-item="schedule:'+ x.id+'">Editar</button><button class="mini danger" data-delete="schedule:'+ x.id+'">×</button></article>').join(""):empty("Construye el cronograma completo del gran día.");
 }
 function renderTables(){
   const p=current();if(!p)return;
   $("#tableList").innerHTML=p.tables.length?p.tables.map(t=>{
     const assigned=p.guests.filter(g=>g.tableId===t.id&&g.status!=="declined").reduce((a,g)=>a+Number(g.seats||1),0),cap=Number(t.capacity||0),over=assigned>cap;
-    return '<article class="row '+(over?"capacity-over":"")+'"><div><b>'+esc(t.name)+'</b><small>'+assigned+' de '+cap+' plazas · '+esc(t.zone||"Zona sin indicar")+(over?" · CAPACIDAD SUPERADA":"")+'</small><span class="progress"><i style="width:'+Math.min(100,Math.round(assigned/Math.max(cap,1)*100))+'%"></i></span></div><button class="mini danger" data-delete="tables:'+t.id+'">×</button></article>';
+    return '<article class="row '+(over?"capacity-over":"")+'"><div><b>'+esc(t.name)+'</b><small>'+assigned+' de '+cap+' plazas · '+esc(t.zone||"Zona sin indicar")+(over?" · CAPACIDAD SUPERADA":"")+'</small><span class="progress"><i style="width:'+Math.min(100,Math.round(assigned/Math.max(cap,1)*100))+'%"></i></span></div><button class="mini" data-edit-item="tables:'+ t.id+'">Editar</button><button class="mini danger" data-delete="tables:'+ t.id+'">×</button></article>';
   }).join(""):empty("Crea las mesas y controla su capacidad.");
 }
 
@@ -314,7 +378,7 @@ function localAnswer(question,p){
 }
 $("#analyzeProject").onclick=()=>renderAiAnalysis();
 $("#createMasterPlan").onclick=()=>{if(confirm("¿Añadir el plan maestro profesional a las tareas del proyecto?"))createMasterPlan();};
-$$("[data-ai-question]").forEach(b=>b.onclick=()=>{const f=$("#aiForm");f.elements.question.value=b.dataset.aiQuestion;f.requestSubmit();});
+document.querySelectorAll("[data-ai-question]").forEach(b=>b.onclick=()=>{const f=$("#aiForm");f.elements.question.value=b.dataset.aiQuestion;f.requestSubmit();});
 $("#aiForm").onsubmit=e=>{
   e.preventDefault();const p=current();if(!p)return;
   const q=e.currentTarget.elements.question.value.trim(),answer=localAnswer(q,p);
@@ -331,7 +395,7 @@ async function renderInvitation(){
 $("#downloadQr").onclick=()=>{const img=$("#projectQr");if(!img.src)return toast("Espera a que se genere el QR");const name=(current()?.name||"Moments_Planner")+"_QR.png";if(android()?.saveBase64File){android().saveBase64File(name,"image/png",img.src.split(",")[1]||"");}else{const a=document.createElement("a");a.href=img.src;a.download=name;a.click();}};
 $("#copyShareText").onclick=async()=>{
   const text=$("#sharePreview").textContent;
-  try{await navigator.clipboard.writeText(text);toast("Texto copiado");}catch{const t=document.createElement("textarea");t.value=text;document.body.append(t);t.select();document.execCommand("copy");t.remove();toast("Texto copiado");}
+  try{if(!navigator.clipboard?.writeText)throw new Error("Clipboard API unavailable");await navigator.clipboard.writeText(text);toast("Texto copiado");}catch{const t=document.createElement("textarea");t.value=text;document.body.append(t);t.select();const copied=document.execCommand("copy");t.remove();toast(copied?"Texto copiado":"No se pudo copiar. Mantén pulsado el texto para seleccionarlo.");}
 };
 function icsEscape(v){return String(v||"").replace(/\\/g,"\\\\").replace(/\n/g,"\\n").replace(/,/g,"\\,").replace(/;/g,"\\;");}
 $("#downloadCalendar").onclick=()=>{
@@ -373,7 +437,7 @@ $("#exportFull").onclick=()=>{
 function applySettings(){
   $("#appName").textContent=settings.appName||"Moments Planner";
   const symbol=new Intl.NumberFormat(locale(),{style:"currency",currency:settings.currency||"EUR"}).formatToParts(0).find(x=>x.type==="currency")?.value||"€";
-  $$(".currency").forEach(x=>x.textContent=symbol);
+  document.querySelectorAll(".currency").forEach(x=>x.textContent=symbol);
   const f=$("#settingsForm");Object.entries(settings).forEach(([k,v])=>{if(!f.elements[k])return;f.elements[k].type==="checkbox"?f.elements[k].checked=!!v:f.elements[k].value=v;});
 }
 $("#settingsForm").onsubmit=e=>{e.preventDefault();const f=new FormData(e.currentTarget);settings={...settings,...Object.fromEntries(f),notifications:f.has("notifications")};localStorage.setItem(SETTINGS,JSON.stringify(settings));applySettings();toast("Configuración guardada");back();};
@@ -405,4 +469,7 @@ function renderAll(){
 }
 
 applySettings();save();go("home",false);
-if(android()?.checkSubscription){android().checkSubscription();}else{window.onMomentsOffer("4,99 €",true);$("#paywall").classList.remove("hidden");}
+$("#paywall").classList.remove("hidden");
+window.onMomentsOfferUnavailable("Comprueba la suscripción en Google Play.");
+if(android()?.checkSubscription)android().checkSubscription();
+else $("#paywallStatus").textContent="La suscripción se puede comprobar al abrir esta aplicación desde Google Play.";
