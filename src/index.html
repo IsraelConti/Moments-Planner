@@ -27,19 +27,22 @@
     <symbol id="qr" viewBox="0 0 24 24"><path d="M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM15 14h2v2h-2zM19 14h2v5h-2zM14 19h3v2h-3z"/></symbol>
   </svg>
 
-  <section id="paywall" class="overlay hidden" aria-modal="true">
+  <section id="paywall" class="overlay hidden" aria-modal="true" aria-labelledby="paywallTitle">
     <div class="overlay-card">
+      <button id="closePaywall" class="paywall-close" type="button" aria-label="Salir de Moments Planner">Salir</button>
       <img src="app-icon.png" alt="Moments Planner">
       <p class="eyebrow">MOMENTS PLANNER PREMIUM</p>
-      <h1>Organiza momentos inolvidables</h1>
-      <p class="lead">Tu planificadora local para bodas, celebraciones y eventos profesionales.</p>
+      <h1 id="paywallTitle">Se necesita una suscripción</h1>
+      <p class="lead">Suscríbete para usar Moments Planner. Puedes salir de la aplicación cuando quieras.</p>
       <div class="plan-box">
-        <b id="planHeadline">3 días gratis</b>
-        <strong id="subscriptionPrice">Después, 4,99 € al mes</strong>
-        <small id="subscriptionTerms">Después se renueva automáticamente cada mes. Cancela durante la prueba desde Google Play y no se realizará ningún cobro.</small>
+        <b id="planHeadline">Consultando Google Play</b>
+        <strong id="subscriptionPrice">El precio se mostrará aquí</strong>
+        <small id="subscriptionTerms">La duración de la prueba, si está disponible, y el precio final se confirmarán en Google Play antes de comprar.</small>
       </div>
-      <button id="subscribeBtn" class="btn primary wide">Probar 3 días gratis</button>
-      <button id="restorePurchase" class="btn wide">Restaurar compra</button>
+      <p id="paywallStatus" class="paywall-status" role="status" aria-live="polite">Comprobando la suscripción…</p>
+      <button id="subscribeBtn" class="btn primary wide" type="button" disabled>Consultar suscripción</button>
+      <button id="restorePurchase" class="btn wide" type="button">Restaurar compra</button>
+      <button id="exitPaywall" class="btn wide" type="button">Salir de la aplicación</button>
       <small class="privacy-note">Pago seguro gestionado por Google Play.</small>
     </div>
   </section>
@@ -101,7 +104,7 @@
       </div>
       <div id="dashboardAlerts" class="smart-alerts"></div>
       <div id="dashboardActions" class="action-grid"></div>
-      <div class="project-tools"><button id="duplicateProject" class="btn">Duplicar proyecto</button><button id="deleteProject" class="btn danger-btn">Eliminar proyecto</button></div>
+      <div class="project-tools"><button id="editProject" class="btn">Editar proyecto</button><button id="duplicateProject" class="btn">Duplicar proyecto</button><button id="deleteProject" class="btn danger-btn">Eliminar proyecto</button></div>
       <button class="btn wide" data-go="home">← Volver a mis proyectos</button>
     </section>
 
@@ -252,7 +255,7 @@
         <details><summary>Presupuesto y proveedores</summary><p>Registra importes contratados, pagos, vencimientos, estados y condiciones. Confirma siempre por escrito cancelaciones, horarios, seguros y servicios incluidos.</p></details>
         <details><summary>Agenda y Plan B</summary><p>Define horarios, lugares y responsables. Añade alternativas meteorológicas, transporte, accesibilidad y contactos críticos.</p></details>
         <details><summary>Copias de seguridad</summary><p>Los proyectos se guardan en este dispositivo. Descarga copias JSON regularmente y restáuralas desde Ajustes cuando cambies de móvil.</p></details>
-        <details><summary>Suscripción</summary><p>Los clientes nuevos elegibles disponen de 3 días gratuitos. Después cuesta 4,99 € al mes y se renueva automáticamente. Si cancelas durante la prueba desde Google Play, no se realiza ningún cobro. Las cuentas no elegibles pueden ver directamente el precio mensual.</p></details>
+        <details><summary>Suscripción</summary><p>El precio, la moneda, la renovación y cualquier oferta de prueba se muestran desde Google Play antes de confirmar la compra. Las condiciones pueden variar según el país y la elegibilidad de la cuenta. Puedes gestionar o cancelar una suscripción desde Google Play.</p></details>
         <details><summary>Privacidad</summary><p>Los proyectos, invitados, presupuestos y notas permanecen en el almacenamiento local del dispositivo. Moments Planner no solicita contraseñas ni vende datos. Google Play procesa la suscripción. Al exportar o compartir archivos, tú eliges el destino y eres responsable de protegerlos.</p></details>
         <details><summary>Limitaciones importantes</summary><p>La IA local ofrece orientación organizativa y no sustituye asesoramiento jurídico, fiscal, médico, meteorológico, de seguridad o de protección civil. Verifica permisos, seguros, contratos, alergias y aforos con profesionales y autoridades.</p></details>
       </div>
