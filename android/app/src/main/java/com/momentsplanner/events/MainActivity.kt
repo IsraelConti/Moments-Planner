@@ -47,7 +47,31 @@ class MainActivity : AppCompatActivity(), PurchasesUpdatedListener {
         onBackPressedDispatcher.addCallback(this,object:OnBackPressedCallback(true){override fun handleOnBackPressed(){webView.evaluateJavascript("(function(){if(window.onAndroidBack&&window.onAndroidBack()){return 'handled'}return 'exit'})()"){if(it.contains("exit")){isEnabled=false;onBackPressedDispatcher.onBackPressed()}}}})
     }
     private fun connectBilling(){if(BuildConfig.DEBUG)return subscriptionResult(true,"4,99 €","Modo de prueba");if(billingClient.isReady){if(monthlyProduct==null)loadProduct();querySubscription();return};billingClient.startConnection(object:BillingClientStateListener{override fun onBillingSetupFinished(r:BillingResult){if(r.responseCode==BillingClient.BillingResponseCode.OK){loadProduct();querySubscription()}else subscriptionResult(false,"","Google Play no está disponible")};override fun onBillingServiceDisconnected()=Unit})}
-    private fun loadProduct(){val product=QueryProductDetailsParams.Product.newBuilder().setProductId(PRODUCT_MONTHLY).setProductType(BillingClient.ProductType.SUBS).build();billingClient.queryProductDetailsAsync(QueryProductDetailsParams.newBuilder().setProductList(listOf(product)).build()){r,result->if(r.responseCode==BillingClient.BillingResponseCode.OK){monthlyProduct=result.productDetailsList.firstOrNull();val offer=preferredMonthlyOffer(monthlyProduct);if(offer==null)js("window.onMomentsPurchaseError(${quote("Activa en Play Console el plan mensual de 4,99 € y su oferta de prueba gratuita de 3 días.")})") else {val price=offer.pricingPhases.pricingPhaseList.lastOrNull{it.priceAmountMicros>0L}?.formattedPrice?:"4,99 €";js("window.onMomentsOffer(${quote(price)},${hasThreeDayTrial(offer)})")}}else{monthlyProduct=null;js("window.onMomentsPurchaseError(${quote("No se pudo consultar la suscripción en Google Play.")})")}}}
+    private fun loadProduct() {
+        val product = QueryProductDetailsParams.Product.newBuilder()
+            .setProductId(PRODUCT_MONTHLY)
+            .setProductType(BillingClient.ProductType.SUBS)
+            .build()
+        val params = QueryProductDetailsParams.newBuilder().setProductList(listOf(product)).build()
+        billingClient.queryProductDetailsAsync(params) { result, response ->
+            if (result.responseCode != BillingClient.BillingResponseCode.OK) {
+                monthlyProduct = null
+                js("window.onMomentsOfferUnavailable(${quote("No se pudo consultar la suscripción en Google Play.")})")
+            } else {
+                monthlyProduct = response.productDetailsList.firstOrNull()
+                val offer = preferredMonthlyOffer(monthlyProduct)
+                val localizedPrice = offer?.pricingPhases?.pricingPhaseList
+                    ?.lastOrNull { it.priceAmountMicros > 0L }
+                    ?.formattedPrice
+                    ?.takeIf { it.isNotBlank() }
+                when {
+                    offer == null -> js("window.onMomentsOfferUnavailable(${quote("El plan mensual no está disponible en Google Play.")})")
+                    localizedPrice == null -> js("window.onMomentsOfferUnavailable(${quote("Google Play no devolvió un precio válido para tu país.")})")
+                    else -> js("window.onMomentsOffer(${quote(localizedPrice)},${hasThreeDayTrial(offer)})")
+                }
+            }
+        }
+    }
     private fun querySubscription(){if(BuildConfig.DEBUG)return subscriptionResult(true,"4,99 €","Modo de prueba");billingClient.queryPurchasesAsync(QueryPurchasesParams.newBuilder().setProductType(BillingClient.ProductType.SUBS).build()){r,purchases->val active=r.responseCode==BillingClient.BillingResponseCode.OK&&purchases.any{it.products.contains(PRODUCT_MONTHLY)&&it.purchaseState==Purchase.PurchaseState.PURCHASED};subscriptionResult(active,"",if(active)"Suscripción activa" else "Suscripción mensual necesaria");purchases.filter{!it.isAcknowledged}.forEach(::acknowledge)}}
     override fun onPurchasesUpdated(r:BillingResult,purchases:List<Purchase>?){if(r.responseCode==BillingClient.BillingResponseCode.OK&&purchases!=null){purchases.forEach(::acknowledge);querySubscription()}else if(r.responseCode!=BillingClient.BillingResponseCode.USER_CANCELED)js("window.onMomentsPurchaseError(${quote(r.debugMessage)})")}
     private fun acknowledge(p:Purchase){if(p.isAcknowledged)return;billingClient.acknowledgePurchase(AcknowledgePurchaseParams.newBuilder().setPurchaseToken(p.purchaseToken).build()){querySubscription()}}
@@ -63,6 +87,7 @@ class MainActivity : AppCompatActivity(), PurchasesUpdatedListener {
         @JavascriptInterface fun subscribeMonthly()=runOnUiThread{if(billingClient.isReady)launchSubscription()else connectBilling()}
         @JavascriptInterface fun restorePurchases()=runOnUiThread{if(billingClient.isReady)querySubscription()else connectBilling()}
         @JavascriptInterface fun manageSubscription()=runOnUiThread{startActivity(Intent(Intent.ACTION_VIEW,Uri.parse("https://play.google.com/store/account/subscriptions?sku=$PRODUCT_MONTHLY&package=$packageName")))}
+        @JavascriptInterface fun exitApp()=runOnUiThread{finish()}
         @JavascriptInterface fun saveBase64File(fileName:String,mimeType:String,base64:String){val bytes=try{Base64.decode(base64,Base64.DEFAULT)}catch(_:Exception){js("window.onMomentsFileSaved(false,${quote(fileName)})");return};runOnUiThread{if(pendingSaveBytes!=null){js("window.onMomentsPurchaseError(${quote("Termina de guardar el archivo anterior.")})");return@runOnUiThread};pendingSaveBytes=bytes;pendingSaveName=fileName;val safe=fileName.take(120).replace(Regex("[\\\\/:*?\"<>|]"),"_");val intent=Intent(Intent.ACTION_CREATE_DOCUMENT).apply{addCategory(Intent.CATEGORY_OPENABLE);type=mimeType.ifBlank{"application/octet-stream"};putExtra(Intent.EXTRA_TITLE,safe)};try{saveFilePicker.launch(intent)}catch(_:Exception){pendingSaveBytes=null;pendingSaveName="";js("window.onMomentsFileSaved(false,${quote(fileName)})")}}}
     }
     override fun onResume(){super.onResume();if(::billingClient.isInitialized&&!BuildConfig.DEBUG)connectBilling()}
