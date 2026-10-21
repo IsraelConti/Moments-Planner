@@ -28,6 +28,10 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
+      - name: Run static release policy guards
+        run: |
+          node --check src/app.js
+          node scripts/audit-static.mjs
       - name: Install web dependencies
         run: npm install --no-audit --no-fund
       - name: Build embedded application
