@@ -3,20 +3,20 @@ package com.momentsplanner.events
 import android.content.pm.ActivityInfo
 import android.graphics.Bitmap
 import android.os.SystemClock
+import android.view.InputDevice
+import android.view.MotionEvent
 import android.view.ViewGroup
 import android.webkit.WebView
 import androidx.lifecycle.Lifecycle
 import androidx.test.core.app.ActivityScenario
-import androidx.test.espresso.web.sugar.Web.onWebView
 import androidx.test.espresso.Espresso.pressBackUnconditionally
-import androidx.test.espresso.web.webdriver.DriverAtoms.findElement
-import androidx.test.espresso.web.webdriver.DriverAtoms.webClick
-import androidx.test.espresso.web.webdriver.Locator
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import java.io.File
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
+import org.json.JSONObject
+import org.json.JSONTokener
 import org.junit.Assert.*
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -64,6 +64,8 @@ class PaywallInstrumentedTest {
         assertTrue("Paywall was not ready to draw", visualReady.await(10, TimeUnit.SECONDS))
         instrumentation.waitForIdleSync()
         instrumentation.uiAutomation.waitForIdle(750, 5000)
+        // Accessibility can already be idle while the render thread is still compositing its first frame.
+        SystemClock.sleep(750)
         assertEquals("true", evaluate(scenario, "!document.querySelector('#paywall').classList.contains('hidden')"))
         val directory = File(instrumentation.targetContext.getExternalFilesDir(null), "policy-evidence").apply { mkdirs() }
         val bitmap = instrumentation.uiAutomation.takeScreenshot()
@@ -73,7 +75,29 @@ class PaywallInstrumentedTest {
     }
 
     private fun closeAndVerify(scenario: ActivityScenario<MainActivity>, id: String) {
-        onWebView().withElement(findElement(Locator.ID, id)).perform(webClick())
+        val encoded = evaluate(scenario, "(()=>{const el=document.getElementById('$id');el.scrollIntoView({block:'center'});const r=el.getBoundingClientRect();return JSON.stringify({x:r.left+r.width/2,y:r.top+r.height/2,width:innerWidth})})()")
+        val point = JSONObject(JSONTokener(encoded).nextValue() as String)
+        var x = 0f
+        var y = 0f
+        scenario.onActivity { activity ->
+            val root = activity.findViewById<ViewGroup>(android.R.id.content).getChildAt(0) as ViewGroup
+            val webView = root.getChildAt(0) as WebView
+            val origin = IntArray(2)
+            webView.getLocationOnScreen(origin)
+            val scale = webView.width / point.getDouble("width")
+            x = (origin[0] + point.getDouble("x") * scale).toFloat()
+            y = (origin[1] + point.getDouble("y") * scale).toFloat()
+        }
+        SystemClock.sleep(250)
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        val downTime = SystemClock.uptimeMillis()
+        for (action in listOf(MotionEvent.ACTION_DOWN, MotionEvent.ACTION_UP)) {
+            val event = MotionEvent.obtain(downTime, SystemClock.uptimeMillis(), action, x, y, 0)
+            event.source = InputDevice.SOURCE_TOUCHSCREEN
+            instrumentation.sendPointerSync(event)
+            event.recycle()
+            if (action == MotionEvent.ACTION_DOWN) SystemClock.sleep(50)
+        }
         waitUntil("The real Android close bridge did not finish the Activity") { scenario.state == Lifecycle.State.DESTROYED }
     }
 
