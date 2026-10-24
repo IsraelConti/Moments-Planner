@@ -3,6 +3,7 @@ package com.momentsplanner.events
 import android.annotation.SuppressLint
 import android.app.Activity
 import android.content.Intent
+import android.graphics.Color
 import android.net.Uri
 import android.os.Bundle
 import android.util.Base64
@@ -32,6 +33,7 @@ class MainActivity : AppCompatActivity(), PurchasesUpdatedListener {
     private var queryingPurchases = false
     private var pendingSubscribe = false
     private var billingFlowOpen = false
+    private var debugPreviewInitialized = false
     private val acknowledgementsInFlight = mutableSetOf<String>()
     private var fileCallback: ValueCallback<Array<Uri>>? = null
     private var pendingSaveBytes: ByteArray? = null
@@ -70,8 +72,12 @@ class MainActivity : AppCompatActivity(), PurchasesUpdatedListener {
             }
             addJavascriptInterface(AndroidBridge(),"MomentsAndroid")
         }
-        val root = FrameLayout(this)
+        val root = FrameLayout(this).apply { setBackgroundColor(Color.rgb(22, 14, 32)) }
         root.addView(webView, FrameLayout.LayoutParams(-1, -1))
+        WindowCompat.getInsetsController(window, root).apply {
+            isAppearanceLightStatusBars = false
+            isAppearanceLightNavigationBars = false
+        }
         ViewCompat.setOnApplyWindowInsetsListener(root) { view, insets ->
             val safeTypes = WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout()
             val safe = insets.getInsets(safeTypes)
@@ -95,8 +101,11 @@ class MainActivity : AppCompatActivity(), PurchasesUpdatedListener {
 
     private fun connectBilling() {
         if (BuildConfig.DEBUG) {
-            js("window.onMomentsOffer('4,99 €',true)")
-            subscriptionResult(true, "", "Modo de prueba")
+            if (!debugPreviewInitialized) {
+                debugPreviewInitialized = true
+                js("window.onMomentsOffer('4,99 €',true)")
+                subscriptionResult(true, "", "Modo de prueba")
+            }
             return
         }
         if (billingClient.isReady) {

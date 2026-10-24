@@ -2,7 +2,7 @@
 
 Aplicación Android de organización de bodas y eventos. Paquete: `com.momentsplanner.events`.
 
-## Preparar la versión 1.3.2 (código 6)
+## Preparar la versión 1.3.2 (código 7)
 
 1. Ejecutar `npm ci`.
 2. Decodificar `src/app-icon.b64` a `src/app-icon.png` y ejecutar `npm run build`.
