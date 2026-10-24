@@ -96,7 +96,8 @@ jobs:
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot -no-metrics
           emulator-boot-timeout: 480
           script: |
-            cd android && gradle --no-daemon connectedDebugAndroidTest && cd ..
+            # Keep the APK and its screenshots until adb has copied the evidence.
+            cd android && gradle --no-daemon -Pandroid.injected.androidTest.leaveApksInstalledAfterRun=true connectedDebugAndroidTest && cd ..
             adb pull /sdcard/Android/data/com.momentsplanner.events/files/policy-evidence android-policy-evidence
             adb install -r android/app/build/outputs/apk/debug/app-debug.apk
             adb shell am start -n com.momentsplanner.events/.MainActivity
