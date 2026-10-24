@@ -44,8 +44,10 @@ function downloadBlob(content,type,name){
   const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),500);
 }
 
+let offerAvailable=false;
 window.onMomentsOffer=(price,hasTrial)=>{
   if(!price){window.onMomentsOfferUnavailable("El plan no está disponible en Google Play. Inténtalo más tarde.");return;}
+  offerAvailable=true;
   $("#planHeadline").textContent=hasTrial?"3 días gratis":"Suscripción mensual";
   $("#subscriptionPrice").textContent=hasTrial?"Después, "+price+" al mes":price+" al mes";
   $("#subscriptionTerms").textContent=hasTrial?"Después se renueva automáticamente cada mes. Cancela durante la prueba desde Google Play y no se realizará ningún cobro.":"Se renueva automáticamente cada mes y puedes cancelar desde Google Play.";
@@ -54,6 +56,7 @@ window.onMomentsOffer=(price,hasTrial)=>{
   $("#paywallStatus").textContent=hasTrial?"Google Play ofrece una prueba gratuita de 3 días y después "+price+" al mes.":"Precio de Google Play: "+price+" al mes.";
 };
 window.onMomentsOfferUnavailable=message=>{
+  offerAvailable=false;
   $("#planHeadline").textContent="Suscripción no disponible";
   $("#subscriptionPrice").textContent="No hay precio disponible";
   $("#subscriptionTerms").textContent="No se puede iniciar una compra hasta que Google Play devuelva un precio y unas condiciones válidas.";
@@ -65,11 +68,17 @@ window.onMomentsSubscription=(active,price,message)=>{
   // Only the product-details callback can set the purchase offer displayed to users.
   $("#subscriptionStatus").textContent=active?"Suscripción mensual activa":(message||"Suscripción necesaria");
   $("#paywall").classList.toggle("hidden",!!active);
+  $("#subscribeBtn").disabled=!offerAvailable;
   if(!active&&!price)$("#paywallStatus").textContent=message||"Se necesita una suscripción activa para usar Moments Planner.";
+};
+window.onMomentsPurchaseProgress=message=>{
+  $("#subscribeBtn").disabled=true;
+  $("#paywallStatus").textContent=message;
 };
 window.onMomentsPurchaseError=message=>{
   const text=message||"No se pudo completar la operación con Google Play";
   $("#paywallStatus").textContent=text;
+  $("#subscribeBtn").disabled=!offerAvailable;
   toast(text);
 };
 window.onMomentsFileSaved=(success,name)=>toast(success?"Archivo guardado: "+name:"No se pudo guardar el archivo");
@@ -109,7 +118,7 @@ function back(){const previous=historyStack.pop();go(previous&&titles[previous]?
 $("#backBtn").addEventListener("click",back);
 document.querySelectorAll("[data-back]").forEach(b=>b.addEventListener("click",back));
 document.querySelectorAll("[data-go]").forEach(b=>b.addEventListener("click",()=>go(b.dataset.go)));
-window.onAndroidBack=()=>{if(currentScreen==="home")return false;back();return true;};
+window.onAndroidBack=()=>{if(!$("#paywall").classList.contains("hidden")||currentScreen==="home")return false;back();return true;};
 
 document.querySelectorAll("[data-new-project]").forEach(b=>b.addEventListener("click",()=>{
   const type=b.dataset.newProject;
@@ -473,3 +482,4 @@ $("#paywall").classList.remove("hidden");
 window.onMomentsOfferUnavailable("Comprueba la suscripción en Google Play.");
 if(android()?.checkSubscription)android().checkSubscription();
 else $("#paywallStatus").textContent="La suscripción se puede comprobar al abrir esta aplicación desde Google Play.";
+

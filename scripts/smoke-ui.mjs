@@ -1,6 +1,7 @@
 import { chromium } from 'playwright';
 import { pathToFileURL } from 'node:url';
 import { resolve } from 'node:path';
+import { mkdir } from 'node:fs/promises';
 const browser = await chromium.launch({headless:true,args:['--no-sandbox']});
 const page = await browser.newPage({viewport:{width:390,height:844}});
 const errors=[];
@@ -54,7 +55,34 @@ if(!(await page.locator('#subscriptionPrice').innerText()).includes('4,99 €'))
 if(!(await page.locator('#planHeadline').innerText()).includes('3 días'))throw Error('Prueba de tres días no visible cuando Play la ofrece');
 await page.evaluate(()=>window.onMomentsOffer('4,99 €',false));
 if((await page.locator('#planHeadline').innerText()).includes('gratis'))throw Error('La prueba gratuita se muestra sin oferta de Play');
+// A slow purchase must show feedback, prevent duplicate taps, and recover after cancellation/error.
+await page.evaluate(()=>window.onMomentsPurchaseProgress('Abriendo Google Play…'));
+if(!(await page.locator('#subscribeBtn').isDisabled()))throw Error('Se permite iniciar otra compra mientras se abre Play');
+await page.evaluate(()=>window.onMomentsPurchaseError('Compra cancelada. No se ha realizado ningún cobro.'));
+if(await page.locator('#subscribeBtn').isDisabled())throw Error('No se puede reintentar tras cancelar la compra');
+await page.evaluate(()=>window.onMomentsOfferUnavailable('Sin conexión'));
+await page.evaluate(()=>window.onMomentsPurchaseError('Error de conexión'));
+if(!(await page.locator('#subscribeBtn').isDisabled()))throw Error('Un error ha habilitado una compra sin precio válido');
+await page.evaluate(()=>window.onMomentsOffer('US$5.49',true));
+await mkdir('policy-web-evidence',{recursive:true});
+await page.screenshot({path:'policy-web-evidence/paywall-portrait.png'});
+// Short screens previously centered a tall card above the viewport, hiding the close button.
+for(const viewport of [{width:844,height:390},{width:320,height:320}]){
+  await page.setViewportSize(viewport);
+  await page.locator('#paywall').evaluate(el=>el.scrollTop=0);
+  const reachable=await page.locator('#closePaywall').evaluate(el=>{
+    const r=el.getBoundingClientRect();
+    return r.top>=0&&r.left>=0&&r.bottom<=innerHeight&&r.right<=innerWidth&&document.elementFromPoint(r.x+r.width/2,r.y+r.height/2)===el;
+  });
+  if(!reachable)throw Error('Salir está oculto en '+JSON.stringify(viewport));
+  await page.locator('#closePaywall').click();
+}
+await page.screenshot({path:'policy-web-evidence/paywall-small-screen.png'});
+await page.setViewportSize({width:390,height:844});
+// A verification failure must preserve an already unlocked session.
 await page.evaluate(()=>window.onMomentsSubscription(true,'','Suscripción de prueba'));
+await page.evaluate(()=>window.onMomentsPurchaseError('No se pudo consultar Google Play'));
+if(await page.locator('#paywall').isVisible())throw Error('Un fallo de red bloquea una suscripción ya verificada');
 if(await page.locator('#paywall').isVisible())throw Error('El paywall no se oculta al restaurar una suscripción válida');
 // Verify that a real project can be created and becomes the active dashboard.
 await page.locator('[data-new-project="wedding"]').first().click();
@@ -231,5 +259,9 @@ for(const screen of destinations){
   visited.push(screen);
 }
 if(visited.length<5)throw Error('Cobertura insuficiente: '+visited.length+' pantallas');
+await page.locator('[data-go="settings"]').first().click();
+await page.evaluate(()=>window.onMomentsSubscription(false,'','Suscripción necesaria'));
+if(await page.evaluate(()=>window.onAndroidBack())!==false)throw Error('Atrás no permite salir cuando aparece el paywall sobre otra pantalla');
 console.log(JSON.stringify({result:'PASS',screenCount:visited.length,screens:visited,errors},null,2));
 await browser.close();
+

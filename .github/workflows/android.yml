@@ -68,7 +68,7 @@ jobs:
           gradle-version: "8.13"
       - name: Compile debug APK and release bundle
         working-directory: android
-        run: gradle --no-daemon clean assembleDebug bundleRelease
+        run: gradle --no-daemon clean testDebugUnitTest assembleDebug bundleRelease assembleDebugAndroidTest
       - name: Upload installable APK
         uses: actions/upload-artifact@v4
         with:
@@ -96,6 +96,8 @@ jobs:
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot -no-metrics
           emulator-boot-timeout: 480
           script: |
+            cd android && gradle --no-daemon connectedDebugAndroidTest && cd ..
+            adb pull /sdcard/Android/data/com.momentsplanner.events/files/policy-evidence android-policy-evidence
             adb install -r android/app/build/outputs/apk/debug/app-debug.apk
             adb shell am start -n com.momentsplanner.events/.MainActivity
             sleep 12
@@ -126,3 +128,16 @@ jobs:
             android-smoke-ui.xml
             android-smoke-screen.png
           if-no-files-found: ignore
+      - name: Upload policy regression test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Moments-Planner-POLICY-TESTS
+          path: |
+            policy-web-evidence/
+            android/app/build/reports/tests/
+            android/app/build/reports/androidTests/
+            android/app/build/outputs/androidTest-results/
+            android-policy-evidence/
+          if-no-files-found: ignore
+
