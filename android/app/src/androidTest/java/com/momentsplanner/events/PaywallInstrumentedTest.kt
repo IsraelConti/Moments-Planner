@@ -49,8 +49,22 @@ class PaywallInstrumentedTest {
         assertEquals("true", evaluate(scenario, "!document.querySelector('#paywall').classList.contains('hidden') && document.querySelector('#subscriptionPrice').textContent.includes('US$5.49')"))
     }
 
-    private fun saveScreenshot(name: String) {
+    private fun saveScreenshot(scenario: ActivityScenario<MainActivity>, name: String) {
         val instrumentation = InstrumentationRegistry.getInstrumentation()
+        val visualReady = CountDownLatch(1)
+        scenario.onActivity { activity ->
+            val root = activity.findViewById<ViewGroup>(android.R.id.content).getChildAt(0) as ViewGroup
+            val webView = root.getChildAt(0) as WebView
+            webView.postVisualStateCallback(SystemClock.uptimeMillis(), object : WebView.VisualStateCallback() {
+                override fun onComplete(requestId: Long) {
+                    webView.postOnAnimation { visualReady.countDown() }
+                }
+            })
+        }
+        assertTrue("Paywall was not ready to draw", visualReady.await(10, TimeUnit.SECONDS))
+        instrumentation.waitForIdleSync()
+        instrumentation.uiAutomation.waitForIdle(750, 5000)
+        assertEquals("true", evaluate(scenario, "!document.querySelector('#paywall').classList.contains('hidden')"))
         val directory = File(instrumentation.targetContext.getExternalFilesDir(null), "policy-evidence").apply { mkdirs() }
         val bitmap = instrumentation.uiAutomation.takeScreenshot()
         assertNotNull(bitmap)
@@ -67,7 +81,7 @@ class PaywallInstrumentedTest {
         ActivityScenario.launch(MainActivity::class.java).use { scenario ->
             showPaywall(scenario)
             assertEquals("true", evaluate(scenario, "(()=>{const r=document.querySelector('#closePaywall').getBoundingClientRect();return r.top>=0 && r.bottom<=innerHeight && r.width>=44 && r.height>=44})()"))
-            saveScreenshot("paywall-portrait.png")
+            saveScreenshot(scenario, "paywall-portrait.png")
             closeAndVerify(scenario, "closePaywall")
         }
     }
@@ -95,7 +109,7 @@ class PaywallInstrumentedTest {
             }
             showPaywall(scenario)
             assertEquals("true", evaluate(scenario, "(()=>{const r=document.querySelector('#closePaywall').getBoundingClientRect();return r.top>=0 && r.bottom<=innerHeight})()"))
-            saveScreenshot("paywall-landscape.png")
+            saveScreenshot(scenario, "paywall-landscape.png")
             closeAndVerify(scenario, "closePaywall")
         }
     }
