@@ -17,31 +17,21 @@ jobs:
     steps:
       - name: Checkout Moments Planner
         uses: actions/checkout@v4
-      - name: Restore original Moments Planner web sources
-        uses: actions/checkout@v4
-        with:
-          repository: IsraelConti/ToolStock-Pro
-          ref: wedding-events-planner
-          path: _source
-          sparse-checkout: |
-            src
-      - name: Copy application sources
+      - name: Verify local application sources
         run: |
-          mkdir -p src
-          cp -f _source/src/index.html src/index.html
-          cp -f _source/src/app.js src/app.js
-          cp -f _source/src/styles.css src/styles.css
-          if [ -f _source/src/app-icon.b64 ]; then cp -f _source/src/app-icon.b64 src/app-icon.b64; fi
-          rm -rf _source
           test -s src/index.html
           test -s src/app.js
           test -s src/styles.css
-      - name: Apply Moments Expert professional enhancements
-        run: node scripts/enhance-moments.mjs
+      - name: Check application JavaScript syntax
+        run: node --check src/app.js
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 22
+      - name: Run static release policy guards
+        run: |
+          node --check src/app.js
+          node scripts/audit-static.mjs
       - name: Install web dependencies
         run: npm install --no-audit --no-fund
       - name: Build embedded application
@@ -55,6 +45,12 @@ jobs:
             cp -f src/app-icon.png "android/app/src/main/res/mipmap-$density/ic_launcher.png"
             cp -f src/app-icon.png "android/app/src/main/res/mipmap-$density/ic_launcher_round.png"
           done
+      - name: Install Chromium test browser
+        run: |
+          npm install --no-save playwright@1.56.1
+          npx playwright install --with-deps chromium
+      - name: Test interactive buttons and navigation
+        run: node scripts/smoke-ui.mjs
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
@@ -62,6 +58,8 @@ jobs:
           java-version: "17"
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
       - name: Install Android API 36
         run: sdkmanager "platforms;android-36" "build-tools;36.0.0"
       - name: Setup Gradle
@@ -70,7 +68,7 @@ jobs:
           gradle-version: "8.13"
       - name: Compile debug APK and release bundle
         working-directory: android
-        run: gradle --no-daemon clean assembleDebug bundleRelease
+        run: gradle --no-daemon clean testDebugUnitTest assembleDebug bundleRelease assembleDebugAndroidTest
       - name: Upload installable APK
         uses: actions/upload-artifact@v4
         with:
@@ -83,3 +81,64 @@ jobs:
           name: Moments-Planner-AAB-unsigned
           path: android/app/build/outputs/bundle/release/app-release.aab
           if-no-files-found: error
+      - name: Enable KVM acceleration for Android emulator
+        run: |
+          if test -e /dev/kvm; then sudo chmod 666 /dev/kvm; ls -l /dev/kvm; else echo 'WARNING: KVM unavailable'; fi
+      - name: Android emulator installation and launch smoke test
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_4
+          disable-animations: true
+          force-avd-creation: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot -no-metrics
+          emulator-boot-timeout: 480
+          script: |
+            # Keep the APK and its screenshots until adb has copied the evidence.
+            cd android && gradle --no-daemon -Pandroid.injected.androidTest.leaveApksInstalledAfterRun=true connectedDebugAndroidTest && cd ..
+            adb pull /sdcard/Android/data/com.momentsplanner.events/files/policy-evidence android-policy-evidence
+            adb install -r android/app/build/outputs/apk/debug/app-debug.apk
+            adb shell am start -n com.momentsplanner.events/.MainActivity
+            sleep 12
+            adb shell pidof com.momentsplanner.events
+            adb shell dumpsys activity activities > android-smoke-activity.txt
+            adb shell uiautomator dump /sdcard/moments-ui.xml || true
+            adb shell cat /sdcard/moments-ui.xml > android-smoke-ui.xml || true
+            adb shell screencap -p /sdcard/moments-screen.png
+            adb pull /sdcard/moments-screen.png android-smoke-screen.png
+            grep -q "com.momentsplanner.events" android-smoke-activity.txt || { echo "Moments Planner not present in activity state"; exit 1; }
+            adb shell input keyevent 4
+            sleep 2
+            # On the home screen Back is intentionally allowed to exit the Activity.
+            # Verify that reopening works whether Android kept or stopped its process.
+            adb shell am start -n com.momentsplanner.events/.MainActivity
+            sleep 3
+            adb shell pidof com.momentsplanner.events
+            adb logcat -d -t 5000 -v brief > android-smoke-logcat.txt
+            if grep -A 12 'FATAL EXCEPTION' android-smoke-logcat.txt | grep -q 'Process: com.momentsplanner.events'; then echo 'Moments Planner Android crash detected'; exit 1; fi
+      - name: Upload Android emulator smoke log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Moments-Planner-ANDROID-SMOKE-LOG
+          path: |
+            android-smoke-logcat.txt
+            android-smoke-activity.txt
+            android-smoke-ui.xml
+            android-smoke-screen.png
+          if-no-files-found: ignore
+      - name: Upload policy regression test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Moments-Planner-POLICY-TESTS
+          path: |
+            policy-web-evidence/
+            android/app/build/reports/tests/
+            android/app/build/reports/androidTests/
+            android/app/build/outputs/androidTest-results/
+            android-policy-evidence/
+          if-no-files-found: ignore
+

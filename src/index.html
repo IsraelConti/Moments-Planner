@@ -1,0 +1,289 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#21142f">
+  <title>Moments Planner — Bodas y Eventos</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <svg class="sprite" aria-hidden="true">
+    <symbol id="back" viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7M8 12h11"/></symbol>
+    <symbol id="home" viewBox="0 0 24 24"><path d="M3 11l9-7 9 7M5 10v10h14V10M9 20v-6h6v6"/></symbol>
+    <symbol id="rings" viewBox="0 0 24 24"><circle cx="9" cy="12" r="6"/><circle cx="15" cy="12" r="6"/><path d="M12 3l1.2 2L15 6l-2 .8L12 9l-.9-2.2L9 6l2.1-1z"/></symbol>
+    <symbol id="party" viewBox="0 0 24 24"><path d="M5 20l4-14 9 9zM13 4l1-2M18 8l3-1M17 3l2 2M8 3L7 1"/><circle cx="18" cy="12" r="1"/></symbol>
+    <symbol id="guests" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2"/><path d="M3 20c0-4 2-6 6-6s6 2 6 6M15 15c3 0 5 2 5 5"/></symbol>
+    <symbol id="tasks" viewBox="0 0 24 24"><path d="M8 4h12v16H8M4 6l1 1 2-2M4 12l1 1 2-2M4 18l1 1 2-2M11 7h6M11 13h6M11 19h6"/></symbol>
+    <symbol id="money" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="12" cy="12" r="3"/><path d="M7 9H5v2M17 15h2v-2"/></symbol>
+    <symbol id="vendors" viewBox="0 0 24 24"><path d="M4 9h16l-1-5H5zM5 9v11h14V9M9 20v-6h6v6"/></symbol>
+    <symbol id="calendar" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 10h18M8 14h3M13 14h3M8 17h3"/></symbol>
+    <symbol id="tables" viewBox="0 0 24 24"><circle cx="12" cy="12" r="5"/><circle cx="12" cy="3" r="1.5"/><circle cx="12" cy="21" r="1.5"/><circle cx="3" cy="12" r="1.5"/><circle cx="21" cy="12" r="1.5"/></symbol>
+    <symbol id="settings" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><circle cx="12" cy="12" r="8"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></symbol>
+    <symbol id="spark" viewBox="0 0 24 24"><path d="M12 2l1.6 5.4L19 9l-5.4 1.6L12 16l-1.6-5.4L5 9l5.4-1.6zM19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/></symbol>
+    <symbol id="info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7h.01"/></symbol>
+    <symbol id="shield" viewBox="0 0 24 24"><path d="M12 3l8 3v5c0 5-3.2 8.6-8 10-4.8-1.4-8-5-8-10V6zM8 12l2.5 2.5L16 9"/></symbol>
+    <symbol id="qr" viewBox="0 0 24 24"><path d="M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM15 14h2v2h-2zM19 14h2v5h-2zM14 19h3v2h-3z"/></symbol>
+  </svg>
+
+  <section id="paywall" class="overlay hidden" role="dialog" aria-modal="true" aria-labelledby="paywallTitle">
+    <div class="overlay-card">
+      <button id="closePaywall" class="paywall-close" type="button" aria-label="Salir de Moments Planner">Salir</button>
+      <img src="app-icon.png" alt="Moments Planner">
+      <p class="eyebrow">MOMENTS PLANNER PREMIUM</p>
+      <h1 id="paywallTitle">Se necesita una suscripción</h1>
+      <p class="lead">Suscríbete para usar Moments Planner. Puedes salir de la aplicación cuando quieras.</p>
+      <div class="plan-box">
+        <b id="planHeadline">Consultando Google Play</b>
+        <strong id="subscriptionPrice">El precio se mostrará aquí</strong>
+        <small id="subscriptionTerms">La duración de la prueba, si está disponible, y el precio final se confirmarán en Google Play antes de comprar.</small>
+      </div>
+      <p id="paywallStatus" class="paywall-status" role="status" aria-live="polite">Comprobando la suscripción…</p>
+      <button id="subscribeBtn" class="btn primary wide" type="button" disabled>Consultar suscripción</button>
+      <button id="restorePurchase" class="btn wide" type="button">Restaurar compra</button>
+      <button id="exitPaywall" class="btn wide" type="button">Salir de la aplicación</button>
+      <small class="privacy-note">Pago seguro gestionado por Google Play.</small>
+    </div>
+  </section>
+
+  <header class="topbar">
+    <button id="backBtn" class="icon-btn hidden" aria-label="Volver"><svg><use href="#back"/></svg></button>
+    <div class="brand"><img src="app-icon.png" alt=""><div><strong id="appName">Moments Planner</strong><small id="screenTitle">Bodas y eventos</small></div></div>
+    <button class="icon-btn" data-go="help" aria-label="Información y ayuda"><svg><use href="#info"/></svg></button>
+    <button class="icon-btn" data-go="settings" aria-label="Configuración"><svg><use href="#settings"/></svg></button>
+  </header>
+
+  <main>
+    <section class="screen active" data-screen="home">
+      <div class="welcome">
+        <p class="eyebrow">ORGANIZACIÓN PROFESIONAL</p>
+        <h1>Tu evento perfecto, paso a paso.</h1>
+        <p>Plan maestro, invitados, proveedores, presupuesto, mesas, agenda y una asesora local que analiza cada detalle sin enviar tus datos a internet.</p>
+      </div>
+      <div class="mode-grid">
+        <button class="mode wedding" data-new-project="wedding"><svg><use href="#rings"/></svg><b>Planificar una boda</b><small>De la primera idea al último baile</small></button>
+        <button class="mode event" data-new-project="event"><svg><use href="#party"/></svg><b>Organizar un evento</b><small>Empresa, cumpleaños, comunión, feria y más</small></button>
+      </div>
+      <div class="section-head"><div><p class="eyebrow">EN CURSO</p><h2>Mis proyectos</h2></div></div>
+      <div id="projectList" class="list"></div>
+    </section>
+
+    <section class="screen" data-screen="projectForm">
+      <p class="eyebrow" id="projectEyebrow">NUEVO PROYECTO</p><h2 id="projectFormTitle">Crear proyecto</h2>
+      <form id="projectForm" class="form">
+        <input type="hidden" name="type" value="wedding">
+        <div class="card">
+          <h3>Datos principales</h3>
+          <label>Nombre del proyecto *<input name="name" required placeholder="Ej.: Boda Laura y Daniel"></label>
+          <div class="two"><label>Fecha *<input name="date" type="date" required></label><label>Hora<input name="time" type="time"></label></div>
+          <label id="weddingCoupleField">Nombres de la pareja<input name="couple" placeholder="Ej.: Laura & Daniel"></label>
+          <label id="eventTypeField" class="hidden">Tipo de evento<select name="eventType"><option>Evento corporativo</option><option>Cumpleaños</option><option>Comunión</option><option>Bautizo</option><option>Feria / congreso</option><option>Fiesta privada</option><option>Gala benéfica</option><option>Otro</option></select></label>
+          <div class="two"><label>Cliente o contacto<input name="client" placeholder="Nombre completo"></label><label>Teléfono<input name="phone" type="tel" placeholder="+34..."></label></div>
+          <label>Correo de contacto<input name="email" type="email" placeholder="cliente@correo.com"></label>
+        </div>
+        <div class="card">
+          <h3>Lugar, estilo y alcance</h3>
+          <label>Lugar principal<input name="venue" placeholder="Finca, hotel, salón o dirección"></label>
+          <div class="two"><label>Ciudad<input name="city" placeholder="Ciudad"></label><label>Celebración<select name="locationType"><option>Interior</option><option>Exterior</option><option>Interior y exterior</option><option>Por decidir</option></select></label></div>
+          <div class="two"><label>Invitados previstos<input name="guestTarget" type="number" min="0" value="0"></label><label>Presupuesto máximo<div class="money"><input name="budget" type="number" min="0" step=".01" value="0"><span class="currency">€</span></div></label></div>
+          <div class="two"><label>Estilo o temática<input name="style" placeholder="Elegante, rústico, moderno..."></label><label>Código de vestimenta<input name="dressCode" placeholder="Formal, cóctel..."></label></div>
+          <label>Notas y prioridades<textarea name="notes" rows="4" placeholder="Qué es imprescindible, gustos, necesidades y observaciones"></textarea></label>
+        </div>
+        <div class="sticky"><button type="button" class="btn" data-back>Cancelar y volver</button><button class="btn primary">Crear proyecto</button></div>
+      </form>
+    </section>
+
+    <section class="screen" data-screen="dashboard">
+      <div id="projectHero" class="project-hero"></div>
+      <div class="metrics">
+        <article><small>Asistentes</small><b id="mGuests">0</b></article>
+        <article><small>Tareas pendientes</small><b id="mTasks">0</b></article>
+        <article><small>Comprometido</small><b id="mSpent">0 €</b></article>
+        <article class="readiness-metric"><small>Preparación</small><b id="mReadiness">0%</b></article>
+      </div>
+      <div id="dashboardAlerts" class="smart-alerts"></div>
+      <div id="dashboardActions" class="action-grid"></div>
+      <div class="project-tools"><button id="editProject" class="btn">Editar proyecto</button><button id="duplicateProject" class="btn">Duplicar proyecto</button><button id="deleteProject" class="btn danger-btn">Eliminar proyecto</button></div>
+      <button class="btn wide" data-go="home">← Volver a mis proyectos</button>
+    </section>
+
+    <section class="screen" data-screen="guests">
+      <p class="eyebrow">LISTA Y CONFIRMACIONES</p><h2>Invitados y asistentes</h2>
+      <form id="guestForm" class="quick-form">
+        <input name="name" required placeholder="Nombre y apellidos">
+        <select name="status"><option value="pending">Pendiente</option><option value="confirmed">Confirmado</option><option value="declined">No asistirá</option></select>
+        <input name="seats" type="number" min="1" value="1" placeholder="Plazas">
+        <input name="group" placeholder="Familia / empresa / grupo">
+        <input name="phone" type="tel" placeholder="Teléfono">
+        <input name="menu" placeholder="Menú, alergias o accesibilidad">
+        <button class="btn primary">Añadir invitado</button>
+      </form>
+      <div id="guestSummary" class="summary-card"></div>
+      <div id="guestList" class="list"></div><button class="btn wide" data-back>← Volver al proyecto</button>
+    </section>
+
+    <section class="screen" data-screen="tasks">
+      <p class="eyebrow">PLAN DE TRABAJO</p><h2>Tareas y fechas</h2>
+      <form id="taskForm" class="quick-form">
+        <input name="title" required placeholder="Tarea">
+        <input name="dueDate" type="date" required>
+        <select name="category"><option>Planificación</option><option>Invitados</option><option>Proveedores</option><option>Documentación</option><option>Logística</option><option>Decoración</option><option>Comunicación</option><option>Pagos</option><option>Otro</option></select>
+        <select name="priority"><option value="normal">Normal</option><option value="high">Prioritaria</option><option value="urgent">Urgente</option></select>
+        <input name="responsible" placeholder="Responsable">
+        <button class="btn primary">Añadir tarea</button>
+      </form>
+      <div id="taskList" class="list"></div><button class="btn wide" data-back>← Volver al proyecto</button>
+    </section>
+
+    <section class="screen" data-screen="budget">
+      <p class="eyebrow">CONTROL ECONÓMICO</p><h2>Presupuesto y pagos</h2>
+      <form id="expenseForm" class="quick-form">
+        <select name="category"><option>Espacio</option><option>Catering</option><option>Fotografía y vídeo</option><option>Música</option><option>Decoración y flores</option><option>Vestuario</option><option>Transporte</option><option>Invitaciones</option><option>Personal</option><option>Tecnología</option><option>Seguros y permisos</option><option>Otros</option></select>
+        <input name="concept" required placeholder="Concepto o proveedor">
+        <input name="amount" type="number" min="0" step=".01" required placeholder="Importe">
+        <input name="paid" type="number" min="0" step=".01" value="0" placeholder="Pagado">
+        <input name="dueDate" type="date">
+        <button class="btn primary">Añadir gasto</button>
+      </form>
+      <div id="budgetSummary" class="summary-card"></div><div id="expenseList" class="list"></div>
+      <button class="btn wide" data-back>← Volver al proyecto</button>
+    </section>
+
+    <section class="screen" data-screen="vendors">
+      <p class="eyebrow">PROVEEDORES Y SERVICIOS</p><h2>Proveedores</h2>
+      <form id="vendorForm" class="quick-form">
+        <input name="name" required placeholder="Empresa o profesional">
+        <input name="service" required placeholder="Servicio: finca, música, flores...">
+        <input name="contact" placeholder="Teléfono o correo">
+        <select name="status"><option value="candidate">Candidato</option><option value="quoted">Presupuesto recibido</option><option value="booked">Contratado</option><option value="discarded">Descartado</option></select>
+        <input name="quote" type="number" min="0" step=".01" placeholder="Presupuesto">
+        <input name="notes" placeholder="Contrato, condiciones y notas">
+        <button class="btn primary">Añadir proveedor</button>
+      </form>
+      <div id="vendorList" class="list"></div><button class="btn wide" data-back>← Volver al proyecto</button>
+    </section>
+
+    <section class="screen" data-screen="schedule">
+      <p class="eyebrow">CRONOGRAMA MAESTRO</p><h2>Agenda del día</h2>
+      <form id="scheduleForm" class="quick-form">
+        <input name="time" type="time" required>
+        <input name="endTime" type="time">
+        <input name="title" required placeholder="Momento o actividad">
+        <input name="place" placeholder="Lugar">
+        <input name="responsible" placeholder="Responsable">
+        <button class="btn primary">Añadir a agenda</button>
+      </form>
+      <div id="scheduleList" class="timeline"></div><button class="btn wide" data-back>← Volver al proyecto</button>
+    </section>
+
+    <section class="screen" data-screen="tables">
+      <p class="eyebrow">BANQUETE Y DISTRIBUCIÓN</p><h2>Mesas y asientos</h2>
+      <form id="tableForm" class="quick-form">
+        <input name="name" required placeholder="Nombre o número de mesa">
+        <input name="capacity" type="number" min="1" required placeholder="Capacidad">
+        <input name="zone" placeholder="Zona / salón">
+        <button class="btn primary">Crear mesa</button>
+      </form>
+      <p class="lead">Después asigna cada invitado desde su ficha. La app controla automáticamente la capacidad.</p>
+      <div id="tableList" class="list"></div><button class="btn wide" data-back>← Volver al proyecto</button>
+    </section>
+
+    <section class="screen" data-screen="contingency">
+      <p class="eyebrow">PREVENCIÓN Y LOGÍSTICA</p><h2>Plan B y contactos críticos</h2>
+      <form id="contingencyForm" class="form">
+        <div class="card"><h3>Plan alternativo</h3><label>Plan por lluvia, calor o incidencia<textarea name="planB" rows="4" placeholder="Espacio cubierto, carpas, cambio de horario..."></textarea></label><label>Transporte y aparcamiento<textarea name="transport" rows="3" placeholder="Autobuses, taxis, accesos, parking..."></textarea></label></div>
+        <div class="card"><h3>Seguridad y accesibilidad</h3><label>Contacto principal de emergencia<input name="emergencyContact" placeholder="Nombre y teléfono"></label><label>Necesidades de accesibilidad<textarea name="accessibility" rows="3" placeholder="Movilidad, audición, visión, menores, mayores..."></textarea></label><label>Observaciones operativas<textarea name="operations" rows="3" placeholder="Botiquín, seguros, permisos, horarios, ruido..."></textarea></label></div>
+        <div class="sticky"><button type="button" class="btn" data-back>Cancelar</button><button class="btn primary">Guardar plan</button></div>
+      </form>
+    </section>
+
+    <section class="screen" data-screen="assistant">
+      <div class="ai-hero">
+        <p class="eyebrow">ASESORA LOCAL PROFESIONAL</p>
+        <h2>Moments IA</h2>
+        <p>Analiza el proyecto en tu dispositivo, encuentra riesgos y prepara los siguientes pasos sin enviar datos personales a servidores externos.</p>
+      </div>
+      <div id="aiScore" class="ai-score"></div>
+      <div class="ai-buttons">
+        <button id="analyzeProject" class="btn primary">Analizar mi proyecto</button>
+        <button id="createMasterPlan" class="btn">Crear plan maestro</button>
+      </div>
+      <div id="aiAnalysis" class="ai-analysis"></div>
+      <div class="card">
+        <h3>Pregunta a tu asesora</h3>
+        <div class="chips">
+          <button data-ai-question="¿Qué me falta por organizar?">Qué me falta</button>
+          <button data-ai-question="¿Cómo reparto el presupuesto?">Presupuesto</button>
+          <button data-ai-question="¿Cómo organizo los invitados y las mesas?">Invitados y mesas</button>
+          <button data-ai-question="¿Qué reviso con los proveedores?">Proveedores</button>
+          <button data-ai-question="¿Cómo preparo el cronograma del día?">Cronograma</button>
+          <button data-ai-question="¿Qué plan B necesito?">Plan B</button>
+        </div>
+        <form id="aiForm" class="ai-form"><textarea name="question" required rows="3" placeholder="Ej.: ¿Qué debo confirmar una semana antes?"></textarea><button class="btn primary">Consultar</button></form>
+        <div id="aiConversation" class="ai-conversation"></div>
+      </div>
+      <small class="privacy-note">Asesoramiento organizativo. Comprueba contratos, permisos, seguridad y requisitos legales con profesionales competentes.</small>
+      <button class="btn wide" data-back>← Volver al proyecto</button>
+    </section>
+
+    <section class="screen" data-screen="invitation">
+      <p class="eyebrow">INVITACIÓN Y CALENDARIO</p><h2>Compartir el evento</h2>
+      <div class="share-grid">
+        <div class="card qr-card"><h3>Código QR del evento</h3><img id="projectQr" alt="Código QR"><p class="lead">Incluye nombre, fecha, hora, lugar y contacto del proyecto.</p><button id="downloadQr" class="btn primary">Descargar QR</button></div>
+        <div class="card"><h3>Guardar y compartir</h3><p id="sharePreview" class="share-preview"></p><button id="copyShareText" class="btn wide">Copiar texto</button><button id="downloadCalendar" class="btn wide">Añadir al calendario (.ics)</button></div>
+      </div>
+      <button class="btn wide" data-back>← Volver al proyecto</button>
+    </section>
+
+    <section class="screen" data-screen="reports">
+      <p class="eyebrow">INFORMES Y COPIAS</p><h2>Exportar y compartir</h2>
+      <div class="list">
+        <article class="row"><div><b>Plan profesional completo</b><small>Resumen, preparación, tareas, agenda, presupuesto y proveedores</small></div><button id="exportFull" class="btn primary">Excel</button></article>
+        <article class="row"><div><b>Lista de invitados</b><small>Confirmación, plazas, menú y mesa</small></div><button id="exportGuests" class="btn">Excel</button></article>
+        <article class="row"><div><b>Presupuesto y pagos</b><small>Categorías, pendientes y vencimientos</small></div><button id="exportBudget" class="btn">Excel</button></article>
+      </div><button class="btn wide" data-back>← Volver al proyecto</button>
+    </section>
+
+    <section class="screen" data-screen="help">
+      <p class="eyebrow">INFORMACIÓN Y AYUDA</p><h2>Cómo usar Moments Planner</h2>
+      <div class="help-grid">
+        <details open><summary>Primeros pasos</summary><p>Crea una boda o evento, completa la fecha, el lugar, los asistentes previstos y el presupuesto. En el panel verás el porcentaje de preparación y las alertas prioritarias.</p></details>
+        <details><summary>Moments IA local</summary><p>La asesora analiza tareas, invitados, mesas, presupuesto, proveedores, agenda y plan alternativo. Funciona mediante reglas profesionales dentro del dispositivo y no envía tus proyectos a servicios externos.</p></details>
+        <details><summary>Plan maestro automático</summary><p>Genera tareas recomendadas y fechas adaptadas al tiempo restante. Revisa después responsables y condiciones específicas del evento.</p></details>
+        <details><summary>Invitados y mesas</summary><p>Registra confirmaciones, plazas, grupos, alergias y necesidades. Crea mesas y asigna cada invitado; la capacidad se controla automáticamente.</p></details>
+        <details><summary>Presupuesto y proveedores</summary><p>Registra importes contratados, pagos, vencimientos, estados y condiciones. Confirma siempre por escrito cancelaciones, horarios, seguros y servicios incluidos.</p></details>
+        <details><summary>Agenda y Plan B</summary><p>Define horarios, lugares y responsables. Añade alternativas meteorológicas, transporte, accesibilidad y contactos críticos.</p></details>
+        <details><summary>Copias de seguridad</summary><p>Los proyectos se guardan en este dispositivo. Descarga copias JSON regularmente y restáuralas desde Ajustes cuando cambies de móvil.</p></details>
+        <details><summary>Suscripción</summary><p>El precio, la moneda, la renovación y cualquier oferta de prueba se muestran desde Google Play antes de confirmar la compra. Las condiciones pueden variar según el país y la elegibilidad de la cuenta. Puedes gestionar o cancelar una suscripción desde Google Play.</p></details>
+        <details><summary>Privacidad</summary><p>Los proyectos, invitados, presupuestos y notas permanecen en el almacenamiento local del dispositivo. Moments Planner no solicita contraseñas ni vende datos. Google Play procesa la suscripción. Al exportar o compartir archivos, tú eliges el destino y eres responsable de protegerlos.</p></details>
+        <details><summary>Limitaciones importantes</summary><p>La IA local ofrece orientación organizativa y no sustituye asesoramiento jurídico, fiscal, médico, meteorológico, de seguridad o de protección civil. Verifica permisos, seguros, contratos, alergias y aforos con profesionales y autoridades.</p></details>
+      </div>
+      <div class="card subscription-card"><h3>Estado de la suscripción</h3><p id="subscriptionStatus">Comprobando en Google Play…</p><button id="manageSubscription" class="btn">Gestionar suscripción</button></div>
+      <button class="btn wide" data-back>← Volver</button>
+    </section>
+
+    <section class="screen" data-screen="settings">
+      <p class="eyebrow">PERSONALIZACIÓN</p><h2>Configuración</h2>
+      <form id="settingsForm" class="form">
+        <div class="card"><h3>Negocio</h3><label>Nombre comercial<input name="companyName" placeholder="Tu empresa o estudio"></label><label>Nombre de la aplicación<input name="appName" value="Moments Planner"></label></div>
+        <div class="card"><h3>Formato e importes</h3><div class="two"><label>Formato regional<select name="language"><option value="es">España</option><option value="en">English</option><option value="fr">Français</option><option value="de">Deutsch</option><option value="it">Italiano</option><option value="pt">Português</option></select></label><label>Moneda<select name="currency"><option value="EUR">EUR — €</option><option value="USD">USD — $</option><option value="GBP">GBP — £</option><option value="MXN">MXN — $</option></select></label></div><label>IVA / impuesto (%)<input name="tax" type="number" min="0" step=".01" value="21"></label></div>
+        <div class="card"><h3>Avisos internos</h3><div class="two"><label>Avisar tareas con (días)<input name="alertDays" type="number" min="1" value="7"></label><label>Segundo aviso (días)<input name="urgentDays" type="number" min="0" value="2"></label></div><label class="toggle"><input name="notifications" type="checkbox" checked> Mostrar alertas prioritarias</label></div>
+        <div class="card"><h3>Copias y privacidad</h3><p class="lead">Los datos permanecen en este dispositivo. Guarda una copia antes de cambiar o restaurar el móvil.</p><div class="backup-actions"><button id="backupData" class="btn" type="button">Descargar copia</button><label class="btn file-label">Restaurar copia<input id="restoreData" type="file" accept="application/json"></label></div></div>
+        <div class="sticky"><button class="btn" type="button" data-back>Cancelar y volver</button><button class="btn primary">Guardar configuración</button></div>
+      </form>
+    </section>
+  </main>
+
+  <nav class="bottom-nav">
+    <button data-go="home" class="active"><svg><use href="#home"/></svg>Inicio</button>
+    <button data-go="guests"><svg><use href="#guests"/></svg>Invitados</button>
+    <button data-go="tasks"><svg><use href="#tasks"/></svg>Tareas</button>
+    <button data-go="budget"><svg><use href="#money"/></svg>Importes</button>
+    <button data-go="assistant"><svg><use href="#spark"/></svg>Moments IA</button>
+  </nav>
+  <div id="toast"></div>
+  <script src="app.js"></script>
+</body>
+</html>
+
