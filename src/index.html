@@ -42,10 +42,14 @@
       <p id="paywallStatus" class="paywall-status" role="status" aria-live="polite">Comprobando la suscripción…</p>
       <button id="subscribeBtn" class="btn primary wide" type="button" disabled>Consultar suscripción</button>
       <button id="restorePurchase" class="btn wide" type="button">Restaurar compra</button>
+      <button id="openDemo" class="btn wide" type="button">Explorar demostración sin pagar</button>
+      <small class="privacy-note">La demostración permite explorar todas las pantallas con datos de muestra. Los cambios no se guardan al salir.</small>
       <button id="exitPaywall" class="btn wide" type="button">Salir de la aplicación</button>
       <small class="privacy-note">Pago seguro gestionado por Google Play.</small>
     </div>
   </section>
+
+  <div id="demoBanner" class="demo-banner hidden" role="status">Modo demostración: los cambios no se guardan. <button id="exitDemo" type="button" class="btn">Salir de la demostración</button></div>
 
   <header class="topbar">
     <button id="backBtn" class="icon-btn hidden" aria-label="Volver"><svg><use href="#back"/></svg></button>
