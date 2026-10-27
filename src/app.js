@@ -31,7 +31,9 @@ const todayIso=()=>{const d=new Date();return [d.getFullYear(),String(d.getMonth
 const daysBetween=(a,b)=>Math.ceil((new Date(b+"T12:00:00")-new Date(a+"T12:00:00"))/86400000);
 const normalizeText=v=>String(v||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().trim();
 const android=()=>window.MomentsAndroid;
-const save=()=>{projects=projects.map(normalizeProject);localStorage.setItem(KEY,JSON.stringify(projects));renderAll();};
+let demoMode=false,subscriptionActive=false;
+const persist=(key,value)=>{if(!demoMode)localStorage.setItem(key,value);};
+const save=()=>{projects=projects.map(normalizeProject);persist(KEY,JSON.stringify(projects));renderAll();};
 function toast(msg){const t=$("#toast");t.textContent=msg;t.classList.add("show");setTimeout(()=>t.classList.remove("show"),2600);}
 function downloadBlob(content,type,name){
   const blob=content instanceof Blob?content:new Blob([content],{type});
@@ -64,10 +66,11 @@ window.onMomentsOfferUnavailable=message=>{
   $("#paywallStatus").textContent=message||"No se pudo consultar el producto en Google Play.";
 };
 window.onMomentsSubscription=(active,price,message)=>{
+  subscriptionActive=!!active;
   // Subscription status must not overwrite the exact Play offer, trial, or localized price.
   // Only the product-details callback can set the purchase offer displayed to users.
   $("#subscriptionStatus").textContent=active?"Suscripción mensual activa":(message||"Suscripción necesaria");
-  $("#paywall").classList.toggle("hidden",!!active);
+  $("#paywall").classList.toggle("hidden",!!active||demoMode);
   $("#subscribeBtn").disabled=!offerAvailable;
   if(!active&&!price)$("#paywallStatus").textContent=message||"Se necesita una suscripción activa para usar Moments Planner.";
 };
@@ -95,6 +98,35 @@ const exitApp=()=>{if(android()?.exitApp){android().exitApp();return;}toast("Par
 $("#closePaywall").onclick=exitApp;
 $("#exitPaywall").onclick=exitApp;
 $("#manageSubscription").onclick=()=>android()?.manageSubscription?android().manageSubscription():toast("Gestiona la suscripción desde Google Play");
+
+// Full UI review access without payment, credentials or subscription.
+ // Demo changes are in-memory only; the subscription and real saved projects remain separate.
+$("#openDemo").onclick=()=>{
+  if(demoMode)return;
+  demoMode=true;
+  projects=[normalizeProject({id:"moments-demo-review",name:"Boda de demostración",type:"wedding",
+    date:"2027-06-12",time:"17:30",couple:"Ana y Luis",venue:"Salón de demostración",
+    city:"Sevilla",guestTarget:80,budget:14000,notes:"Datos ficticios para explorar Moments Planner."})];
+  currentId="moments-demo-review";historyStack=[];editingProjectId=null;
+  $("#demoBanner").classList.remove("hidden");
+  $("#paywall").classList.add("hidden");
+  go("dashboard",false);
+};
+$("#exitDemo").onclick=()=>{
+  if(!demoMode)return;
+  demoMode=false;
+  const stored=localStorage.getItem(KEY)?readJson(KEY,[]):readJson(OLD_KEY,[]);
+  projects=(Array.isArray(stored)?stored:[]).map(normalizeProject);
+  const saved=localStorage.getItem(SETTINGS)?readJson(SETTINGS,defaultSettings):readJson(OLD_SETTINGS,defaultSettings);
+  settings={...defaultSettings,...(saved&&typeof saved==="object"&&!Array.isArray(saved)?saved:{})};
+  currentId=localStorage.getItem("moments.current")||"";
+  historyStack=[];editingProjectId=null;
+  $("#demoBanner").classList.add("hidden");
+  applySettings();go("home",false);
+  $("#paywall").classList.toggle("hidden",subscriptionActive);
+  if(android()?.checkSubscription)android().checkSubscription();
+};
+
 
 function go(screen,push=true){
   if(!["home","projectForm","settings","help"].includes(screen)&&!current()){toast("Primero abre o crea un proyecto");screen="home";}
@@ -145,7 +177,7 @@ $("#projectForm").addEventListener("submit",e=>{
   const existing=editingProjectId?projects.find(p=>p.id===editingProjectId):null;
   const project=normalizeProject(existing?{...existing,...data}:{...data,id:uid(),createdAt:new Date().toISOString()});
   if(existing){projects=projects.map(p=>p.id===existing.id?project:p);}else{projects.unshift(project);}
-  editingProjectId=null;currentId=project.id;localStorage.setItem("moments.current",currentId);save();historyStack=["home"];go("dashboard",false);toast(existing?"Proyecto actualizado":project.type==="wedding"?"Boda creada":"Evento creado");
+  editingProjectId=null;currentId=project.id;persist("moments.current",currentId);save();historyStack=["home"];go("dashboard",false);toast(existing?"Proyecto actualizado":project.type==="wedding"?"Boda creada":"Evento creado");
 });
 
 function projectSeats(p,status){
@@ -183,7 +215,7 @@ function renderProjects(){
     const r=readiness(p);
     return '<article class="project-card '+esc(p.type)+'"><span class="project-icon"><svg><use href="#'+(p.type==="wedding"?"rings":"party")+'"/></svg></span><div><b>'+esc(p.name)+'</b><small>'+(p.type==="wedding"?"Boda":"Evento")+' · '+date(p.date)+' · '+esc(p.venue||"Lugar pendiente")+'</small><span class="progress"><i style="width:'+r.score+'%"></i></span></div><span class="score-label">'+r.score+'%</span><button class="btn" data-open="'+p.id+'">Abrir</button></article>';
   }).join(""):'<div class="empty"><h3>Aún no hay proyectos</h3><p>Crea tu primera boda o evento con los botones superiores.</p></div>';
-  document.querySelectorAll("[data-open]").forEach(b=>b.onclick=()=>{currentId=b.dataset.open;localStorage.setItem("moments.current",currentId);go("dashboard");});
+  document.querySelectorAll("[data-open]").forEach(b=>b.onclick=()=>{currentId=b.dataset.open;persist("moments.current",currentId);go("dashboard");});
 }
 function renderDashboard(){
   const p=current();if(!p)return;
@@ -449,7 +481,7 @@ function applySettings(){
   document.querySelectorAll(".currency").forEach(x=>x.textContent=symbol);
   const f=$("#settingsForm");Object.entries(settings).forEach(([k,v])=>{if(!f.elements[k])return;f.elements[k].type==="checkbox"?f.elements[k].checked=!!v:f.elements[k].value=v;});
 }
-$("#settingsForm").onsubmit=e=>{e.preventDefault();const f=new FormData(e.currentTarget);settings={...settings,...Object.fromEntries(f),notifications:f.has("notifications")};localStorage.setItem(SETTINGS,JSON.stringify(settings));applySettings();toast("Configuración guardada");back();};
+$("#settingsForm").onsubmit=e=>{e.preventDefault();const f=new FormData(e.currentTarget);settings={...settings,...Object.fromEntries(f),notifications:f.has("notifications")};persist(SETTINGS,JSON.stringify(settings));applySettings();toast("Configuración guardada");back();};
 $("#backupData").onclick=()=>downloadBlob(JSON.stringify({app:"Moments Planner",version:2,exportedAt:new Date().toISOString(),settings,projects},null,2),"application/json","Moments_Planner_Copia_"+todayIso()+".json");
 $("#restoreData").onchange=async e=>{
   const file=e.target.files?.[0];if(!file)return;
@@ -457,7 +489,7 @@ $("#restoreData").onchange=async e=>{
     const data=JSON.parse(await file.text());if(!Array.isArray(data.projects))throw new Error();
     if(!confirm("La copia sustituirá los proyectos actuales. ¿Continuar?"))return;
     projects=data.projects.map(normalizeProject);settings={...defaultSettings,...(data.settings||{})};currentId=projects[0]?.id||"";
-    localStorage.setItem(KEY,JSON.stringify(projects));localStorage.setItem(SETTINGS,JSON.stringify(settings));localStorage.setItem("moments.current",currentId);applySettings();go("home",false);toast("Copia restaurada correctamente");
+    persist(KEY,JSON.stringify(projects));persist(SETTINGS,JSON.stringify(settings));persist("moments.current",currentId);applySettings();go("home",false);toast("Copia restaurada correctamente");
   }catch{toast("La copia no es válida o está dañada");}finally{e.target.value="";}
 };
 
@@ -466,11 +498,11 @@ $("#duplicateProject").onclick=()=>{
   copy.id=uid();copy.name=p.name+" — Copia";copy.createdAt=new Date().toISOString();
   Object.keys(blankCollections()).forEach(k=>{copy[k]=copy[k].map(x=>{const old=x.id,n={...x,id:uid()};idMap[old]=n.id;return n;});});
   copy.guests.forEach(g=>{g.tableId=idMap[g.tableId]||"";});
-  projects.unshift(copy);currentId=copy.id;localStorage.setItem("moments.current",currentId);save();toast("Proyecto duplicado");
+  projects.unshift(copy);currentId=copy.id;persist("moments.current",currentId);save();toast("Proyecto duplicado");
 };
 $("#deleteProject").onclick=()=>{
   const p=current();if(!p||!confirm("¿Eliminar definitivamente "+p.name+"?"))return;
-  projects=projects.filter(x=>x.id!==p.id);currentId=projects[0]?.id||"";localStorage.setItem("moments.current",currentId);save();historyStack=[];go("home",false);toast("Proyecto eliminado");
+  projects=projects.filter(x=>x.id!==p.id);currentId=projects[0]?.id||"";persist("moments.current",currentId);save();historyStack=[];go("home",false);toast("Proyecto eliminado");
 };
 
 function renderAll(){
