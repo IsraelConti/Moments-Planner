@@ -101,6 +101,19 @@ class PaywallInstrumentedTest {
         waitUntil("The real Android close bridge did not finish the Activity") { scenario.state == Lifecycle.State.DESTROYED }
     }
 
+    @Test fun reviewerCanExploreWithoutPaymentAndExitSafely() {
+        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+            showPaywall(scenario)
+            assertEquals("true", evaluate(scenario,
+                "(()=>{document.getElementById('openDemo').click();return document.getElementById('paywall').classList.contains('hidden') && !document.getElementById('demoBanner').classList.contains('hidden') && document.querySelector('[data-screen=dashboard]').classList.contains('active')})()"))
+            // Simulated loss of entitlement must not abruptly hide the demonstration.
+            assertEquals("true", evaluate(scenario,
+                "(()=>{window.onMomentsSubscription(false,'','No subscription');return document.getElementById('paywall').classList.contains('hidden')})()"))
+            assertEquals("true", evaluate(scenario,
+                "(()=>{document.getElementById('exitDemo').click();return !document.getElementById('paywall').classList.contains('hidden') && document.getElementById('demoBanner').classList.contains('hidden')})()"))
+        }
+    }
+
     @Test fun visibleTopCloseFinishesTheInstalledActivity() {
         ActivityScenario.launch(MainActivity::class.java).use { scenario ->
             showPaywall(scenario)
