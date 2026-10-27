@@ -2,7 +2,7 @@
 
 Aplicación Android de organización de bodas y eventos. Paquete: `com.momentsplanner.events`.
 
-## Preparar la versión 1.3.2 (código 7)
+## Preparar la versión 1.3.3 (código 8)
 
 1. Ejecutar `npm ci`.
 2. Decodificar `src/app-icon.b64` a `src/app-icon.png` y ejecutar `npm run build`.
@@ -25,6 +25,10 @@ El botón superior «Salir», el botón inferior y Atrás permiten abandonar la 
 - `node scripts/smoke-ui.mjs`: 13 pantallas, formularios, persistencia, copia y restauración, exportaciones, QR y respuestas del paywall mediante un puente simulado.
 - `MonthlyOfferPolicyTest`: ofertas mensuales, monedas, pruebas y condiciones no compatibles.
 - `PaywallInstrumentedTest`: botones de salida y Atrás en el WebView instalado, incluido el formato horizontal.
+
+La versión de producción incluye una demostración temporal accesible desde la pantalla de suscripción con el botón «Explorar demostración sin pagar». Permite navegar por las pantallas de la aplicación y manipular datos ficticios sin cuenta, pagos ni tarjeta. Los cambios son solo de sesión: no se escriben en el almacenamiento permanente; al salir se recuperan los proyectos y preferencias originales.
+
+**Google Play reviewer instructions (English):** Launch the app, tap **Explore demo without paying** (Spanish UI: «Explorar demostración sin pagar»), and use the preloaded sample wedding. You can test guests, tasks, budgets, suppliers, timeline, tables, reports, QR, settings and event creation. No credentials, payment card, purchase, or trial are required. Demo changes are temporary; tap «Salir de la demostración» in the banner to leave. Paid subscriptions remain required for persistent personal use.
 
 El APK de depuración habilita acceso de prueba sin comprar. Las pruebas automáticas no certifican una compra o restauración real de Google Play. El AAB de producción mantiene el control de suscripción.
 
