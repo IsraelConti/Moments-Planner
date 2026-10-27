@@ -13,4 +13,8 @@ assert.ok(app.includes('$("#closePaywall").onclick=exitApp'),'Paywall close cont
 assert.ok(native.includes('@JavascriptInterface fun exitApp()=runOnUiThread{finish()}'),'Android bridge does not close the paywall screen');
 assert.ok(native.includes('window.onMomentsOfferUnavailable'),'Billing errors must not invent a localized price');
 assert.ok(!native.includes('formattedPrice?:"4,99 €"'),'Billing must not fall back to a hard-coded euro price');
+assert.ok(html.includes('id="openDemo"') && html.includes('id="demoBanner"') && html.includes('id="exitDemo"'), 'Review demo must be visible and exitable');
+assert.ok(app.includes('if(!demoMode)localStorage.setItem(key,value)'), 'Demo must not persist personal projects');
+assert.ok(app.includes('$("#paywall").classList.toggle("hidden",!!active||demoMode)'), 'Billing refresh must not interrupt demo');
+assert.ok(app.includes('$("#exitDemo").onclick'), 'Demo exit must be wired');
 console.log('Static regression checks passed');
