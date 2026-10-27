@@ -19,6 +19,29 @@ await page.evaluate(()=>window.onMomentsSubscription(true,'','Suscripción de pr
 await page.waitForTimeout(500);
 if(errors.length)throw Error('Errores JS al arrancar: '+errors.join('; '));
 if(await page.locator('#paywall').isVisible())throw Error('La suscripción simulada no desbloqueó la interfaz');
+// A review must access all feature screens without a payment method or account.
+await page.evaluate(()=>window.onMomentsSubscription(false,'','Subscription required'));
+const savedBeforeDemo=await page.evaluate(()=>({
+  projects:localStorage.getItem('moments.planner.v2'),
+  current:localStorage.getItem('moments.current'),
+  settings:localStorage.getItem('moments.settings.v2')
+}));
+await page.locator('#openDemo').click();
+if(await page.locator('#paywall').isVisible())throw Error('Review demo is still blocked by subscription');
+if(!(await page.locator('#demoBanner').isVisible()))throw Error('Session-only demonstration warning missing');
+await page.evaluate(()=>window.onMomentsSubscription(false,'','Billing response arrived after demo started'));
+if(await page.locator('#paywall').isVisible())throw Error('Billing refresh interrupts authorized demo');
+await page.locator('[data-go="tasks"]').first().click();
+if(await page.locator('.screen.active').getAttribute('data-screen')!=='tasks')throw Error('Review demo cannot open tasks');
+await page.locator('#exitDemo').click();
+if(!(await page.locator('#paywall').isVisible()))throw Error('Review demo exit failed to restore paywall');
+if(await page.locator('#demoBanner').isVisible())throw Error('Review banner not removed');
+const savedAfterDemo=await page.evaluate(()=>({
+  projects:localStorage.getItem('moments.planner.v2'),
+  current:localStorage.getItem('moments.current'),
+  settings:localStorage.getItem('moments.settings.v2')
+}));
+if(JSON.stringify(savedAfterDemo)!==JSON.stringify(savedBeforeDemo))throw Error('Review mode changed subscriber local storage');
 // Paywall buttons must be responsive and must call the native billing bridge.
 await page.evaluate(()=>window.onMomentsSubscription(false,'','Suscripción necesaria'));
 if(!(await page.locator('#paywall').isVisible()))throw Error('El paywall no aparece sin suscripción');
