@@ -33,6 +33,8 @@ await page.evaluate(()=>window.onMomentsSubscription(false,'','Billing response 
 if(await page.locator('#paywall').isVisible())throw Error('Billing refresh interrupts authorized demo');
 await page.locator('[data-go="tasks"]').first().click();
 if(await page.locator('.screen.active').getAttribute('data-screen')!=='tasks')throw Error('Review demo cannot open tasks');
+// Keep the mocked billing bridge from unlocking the paywall asynchronously after demo exit.
+await page.evaluate(()=>{window.MomentsAndroid.checkSubscription=()=>{};});
 await page.locator('#exitDemo').click();
 if(!(await page.locator('#paywall').isVisible()))throw Error('Review demo exit failed to restore paywall');
 if(await page.locator('#demoBanner').isVisible())throw Error('Review banner not removed');
