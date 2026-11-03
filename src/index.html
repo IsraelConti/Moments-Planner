@@ -27,30 +27,7 @@
     <symbol id="qr" viewBox="0 0 24 24"><path d="M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM15 14h2v2h-2zM19 14h2v5h-2zM14 19h3v2h-3z"/></symbol>
   </svg>
 
-  <section id="paywall" class="overlay hidden" role="dialog" aria-modal="true" aria-labelledby="paywallTitle">
-    <div class="overlay-card">
-      <button id="closePaywall" class="paywall-close" type="button" aria-label="Salir de Moments Planner">Salir</button>
-      <img src="app-icon.png" alt="Moments Planner">
-      <p class="eyebrow">MOMENTS PLANNER PREMIUM</p>
-      <h1 id="paywallTitle">Se necesita una suscripción</h1>
-      <p class="lead">Suscríbete para usar Moments Planner. Puedes salir de la aplicación cuando quieras.</p>
-      <div class="plan-box">
-        <b id="planHeadline">Consultando Google Play</b>
-        <strong id="subscriptionPrice">El precio se mostrará aquí</strong>
-        <small id="subscriptionTerms">La duración de la prueba, si está disponible, y el precio final se confirmarán en Google Play antes de comprar.</small>
-      </div>
-      <p id="paywallStatus" class="paywall-status" role="status" aria-live="polite">Comprobando la suscripción…</p>
-      <button id="subscribeBtn" class="btn primary wide" type="button" disabled>Consultar suscripción</button>
-      <button id="restorePurchase" class="btn wide" type="button">Restaurar compra</button>
-      <button id="openDemo" class="btn wide" type="button">Explorar demostración sin pagar</button>
-      <small class="privacy-note">La demostración permite explorar todas las pantallas con datos de muestra. Los cambios no se guardan al salir.</small>
-      <button id="exitPaywall" class="btn wide" type="button">Salir de la aplicación</button>
-      <small class="privacy-note">Pago seguro gestionado por Google Play.</small>
-    </div>
-  </section>
-
-  <div id="demoBanner" class="demo-banner hidden" role="status">Modo demostración: los cambios no se guardan. <button id="exitDemo" type="button" class="btn">Salir de la demostración</button></div>
-
+  
   <header class="topbar">
     <button id="backBtn" class="icon-btn hidden" aria-label="Volver"><svg><use href="#back"/></svg></button>
     <div class="brand"><img src="app-icon.png" alt=""><div><strong id="appName">Moments Planner</strong><small id="screenTitle">Bodas y eventos</small></div></div>
@@ -259,11 +236,11 @@
         <details><summary>Presupuesto y proveedores</summary><p>Registra importes contratados, pagos, vencimientos, estados y condiciones. Confirma siempre por escrito cancelaciones, horarios, seguros y servicios incluidos.</p></details>
         <details><summary>Agenda y Plan B</summary><p>Define horarios, lugares y responsables. Añade alternativas meteorológicas, transporte, accesibilidad y contactos críticos.</p></details>
         <details><summary>Copias de seguridad</summary><p>Los proyectos se guardan en este dispositivo. Descarga copias JSON regularmente y restáuralas desde Ajustes cuando cambies de móvil.</p></details>
-        <details><summary>Suscripción</summary><p>El precio, la moneda, la renovación y cualquier oferta de prueba se muestran desde Google Play antes de confirmar la compra. Las condiciones pueden variar según el país y la elegibilidad de la cuenta. Puedes gestionar o cancelar una suscripción desde Google Play.</p></details>
-        <details><summary>Privacidad</summary><p>Los proyectos, invitados, presupuestos y notas permanecen en el almacenamiento local del dispositivo. Moments Planner no solicita contraseñas ni vende datos. Google Play procesa la suscripción. Al exportar o compartir archivos, tú eliges el destino y eres responsable de protegerlos.</p></details>
+        <details><summary>Licencia de pago único</summary><p>La compra de Moments Planner en Google Play es de pago único y da acceso a todas las funciones de la aplicación, sin suscripción ni renovación automática. El precio aparece en la ficha de la tienda antes de comprar.</p></details>
+        <details><summary>Privacidad</summary><p>Los proyectos, invitados, presupuestos y notas permanecen en el almacenamiento local del dispositivo. Moments Planner no solicita contraseñas ni vende datos. Google Play procesa la compra única de la aplicación. Al exportar o compartir archivos, tú eliges el destino y eres responsable de protegerlos.</p></details>
         <details><summary>Limitaciones importantes</summary><p>La IA local ofrece orientación organizativa y no sustituye asesoramiento jurídico, fiscal, médico, meteorológico, de seguridad o de protección civil. Verifica permisos, seguros, contratos, alergias y aforos con profesionales y autoridades.</p></details>
       </div>
-      <div class="card subscription-card"><h3>Estado de la suscripción</h3><p id="subscriptionStatus">Comprobando en Google Play…</p><button id="manageSubscription" class="btn">Gestionar suscripción</button></div>
+      <div class="card"><h3>Licencia de Moments Planner</h3><p>Compra única en Google Play. Acceso completo sin cuotas periódicas.</p></div>
       <button class="btn wide" data-back>← Volver</button>
     </section>
 
