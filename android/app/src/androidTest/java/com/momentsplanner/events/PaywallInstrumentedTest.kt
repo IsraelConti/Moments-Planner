@@ -1,10 +1,7 @@
 package com.momentsplanner.events
 
-import android.content.pm.ActivityInfo
 import android.graphics.Bitmap
 import android.os.SystemClock
-import android.view.InputDevice
-import android.view.MotionEvent
 import android.view.ViewGroup
 import android.webkit.WebView
 import androidx.lifecycle.Lifecycle
@@ -15,13 +12,11 @@ import androidx.test.platform.app.InstrumentationRegistry
 import java.io.File
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
-import org.json.JSONObject
-import org.json.JSONTokener
 import org.junit.Assert.*
 import org.junit.Test
 import org.junit.runner.RunWith
 
-/** Uses the installed Android WebView and the real exitApp bridge; no Play purchase is simulated here. */
+/** Pruebas reales del paquete Android con todas las funciones disponibles sin cuota. */
 @RunWith(AndroidJUnit4::class)
 class PaywallInstrumentedTest {
     private fun evaluate(scenario: ActivityScenario<MainActivity>, script: String): String {
@@ -31,123 +26,42 @@ class PaywallInstrumentedTest {
             val root = activity.findViewById<ViewGroup>(android.R.id.content).getChildAt(0) as ViewGroup
             (root.getChildAt(0) as WebView).evaluateJavascript(script) { result = it; done.countDown() }
         }
-        assertTrue("WebView callback timed out", done.await(10, TimeUnit.SECONDS))
+        assertTrue("No responde WebView", done.await(10, TimeUnit.SECONDS))
         return result
     }
-
-    private fun waitUntil(message: String, condition: () -> Boolean) {
+    private fun waitForLaunch(scenario: ActivityScenario<MainActivity>) {
         val deadline = SystemClock.uptimeMillis() + 30000
-        while (!condition() && SystemClock.uptimeMillis() < deadline) SystemClock.sleep(100)
-        assertTrue(message, condition())
-    }
-
-    private fun showPaywall(scenario: ActivityScenario<MainActivity>) {
-        waitUntil("Embedded application did not initialize") {
-            evaluate(scenario, "document.readyState==='complete' && typeof window.onMomentsOffer==='function' && document.querySelector('#paywall').classList.contains('hidden')") == "true"
+        var ready = false
+        while (!ready && SystemClock.uptimeMillis() < deadline) {
+            ready = evaluate(scenario, "document.readyState==='complete' && document.querySelector('[data-screen=home]')?.classList.contains('active')") == "true"
+            if (!ready) SystemClock.sleep(200)
         }
-        evaluate(scenario, "window.onMomentsSubscription(false,'','Suscripción necesaria');window.onMomentsOffer('US$5.49',true);true")
-        assertEquals("true", evaluate(scenario, "!document.querySelector('#paywall').classList.contains('hidden') && document.querySelector('#subscriptionPrice').textContent.includes('US$5.49')"))
+        assertTrue("No se abrió Inicio", ready)
     }
-
-    private fun saveScreenshot(scenario: ActivityScenario<MainActivity>, name: String) {
-        val instrumentation = InstrumentationRegistry.getInstrumentation()
-        val visualReady = CountDownLatch(1)
-        scenario.onActivity { activity ->
-            val root = activity.findViewById<ViewGroup>(android.R.id.content).getChildAt(0) as ViewGroup
-            val webView = root.getChildAt(0) as WebView
-            webView.postVisualStateCallback(SystemClock.uptimeMillis(), object : WebView.VisualStateCallback() {
-                override fun onComplete(requestId: Long) {
-                    webView.postOnAnimation { visualReady.countDown() }
-                }
-            })
-        }
-        assertTrue("Paywall was not ready to draw", visualReady.await(10, TimeUnit.SECONDS))
-        instrumentation.waitForIdleSync()
-        instrumentation.uiAutomation.waitForIdle(750, 5000)
-        // Accessibility can already be idle while the render thread is still compositing its first frame.
-        SystemClock.sleep(750)
-        assertEquals("true", evaluate(scenario, "!document.querySelector('#paywall').classList.contains('hidden')"))
-        val directory = File(instrumentation.targetContext.getExternalFilesDir(null), "policy-evidence").apply { mkdirs() }
-        val bitmap = instrumentation.uiAutomation.takeScreenshot()
-        assertNotNull(bitmap)
-        File(directory, name).outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
-        bitmap.recycle()
-    }
-
-    private fun closeAndVerify(scenario: ActivityScenario<MainActivity>, id: String) {
-        val encoded = evaluate(scenario, "(()=>{const el=document.getElementById('$id');el.scrollIntoView({block:'center'});const r=el.getBoundingClientRect();return JSON.stringify({x:r.left+r.width/2,y:r.top+r.height/2,width:innerWidth})})()")
-        val point = JSONObject(JSONTokener(encoded).nextValue() as String)
-        var x = 0f
-        var y = 0f
-        scenario.onActivity { activity ->
-            val root = activity.findViewById<ViewGroup>(android.R.id.content).getChildAt(0) as ViewGroup
-            val webView = root.getChildAt(0) as WebView
-            val origin = IntArray(2)
-            webView.getLocationOnScreen(origin)
-            val scale = webView.width / point.getDouble("width")
-            x = (origin[0] + point.getDouble("x") * scale).toFloat()
-            y = (origin[1] + point.getDouble("y") * scale).toFloat()
-        }
-        SystemClock.sleep(250)
-        val instrumentation = InstrumentationRegistry.getInstrumentation()
-        val downTime = SystemClock.uptimeMillis()
-        for (action in listOf(MotionEvent.ACTION_DOWN, MotionEvent.ACTION_UP)) {
-            val event = MotionEvent.obtain(downTime, SystemClock.uptimeMillis(), action, x, y, 0)
-            event.source = InputDevice.SOURCE_TOUCHSCREEN
-            instrumentation.sendPointerSync(event)
-            event.recycle()
-            if (action == MotionEvent.ACTION_DOWN) SystemClock.sleep(50)
-        }
-        waitUntil("The real Android close bridge did not finish the Activity") { scenario.state == Lifecycle.State.DESTROYED }
-    }
-
-    @Test fun reviewerCanExploreWithoutPaymentAndExitSafely() {
+    @Test fun opensWithoutSubscriptionOrAdditionalPurchase() {
         ActivityScenario.launch(MainActivity::class.java).use { scenario ->
-            showPaywall(scenario)
-            assertEquals("true", evaluate(scenario,
-                "(()=>{document.getElementById('openDemo').click();return document.getElementById('paywall').classList.contains('hidden') && !document.getElementById('demoBanner').classList.contains('hidden') && document.querySelector('[data-screen=dashboard]').classList.contains('active')})()"))
-            // Simulated loss of entitlement must not abruptly hide the demonstration.
-            assertEquals("true", evaluate(scenario,
-                "(()=>{window.onMomentsSubscription(false,'','No subscription');return document.getElementById('paywall').classList.contains('hidden')})()"))
-            assertEquals("true", evaluate(scenario,
-                "(()=>{document.getElementById('exitDemo').click();return !document.getElementById('paywall').classList.contains('hidden') && document.getElementById('demoBanner').classList.contains('hidden')})()"))
-        }
-    }
-
-    @Test fun visibleTopCloseFinishesTheInstalledActivity() {
-        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
-            showPaywall(scenario)
-            assertEquals("true", evaluate(scenario, "(()=>{const r=document.querySelector('#closePaywall').getBoundingClientRect();return r.top>=0 && r.bottom<=innerHeight && r.width>=44 && r.height>=44})()"))
-            saveScreenshot(scenario, "paywall-portrait.png")
-            closeAndVerify(scenario, "closePaywall")
-        }
-    }
-
-    @Test fun bottomExitAlsoFinishesTheInstalledActivity() {
-        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
-            showPaywall(scenario)
-            closeAndVerify(scenario, "exitPaywall")
-        }
-    }
-
-    @Test fun androidBackAlsoLeavesThePaywall() {
-        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
-            showPaywall(scenario)
-            pressBackUnconditionally()
-            waitUntil("Android Back did not leave the paywall") { scenario.state == Lifecycle.State.DESTROYED }
-        }
-    }
-
-    @Test fun topCloseRemainsReachableInLandscape() {
-        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
-            scenario.onActivity { it.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE }
-            waitUntil("Android did not enter landscape") {
-                evaluate(scenario, "innerWidth>innerHeight") == "true"
+            waitForLaunch(scenario)
+            assertEquals("false", evaluate(scenario, "!!document.querySelector('#paywall')"))
+            assertEquals("false", evaluate(scenario, "!!document.querySelector('#subscribeBtn')"))
+            assertEquals("true", evaluate(scenario, "!!document.querySelector('[data-new-project=wedding]')"))
+            val instrumentation = InstrumentationRegistry.getInstrumentation()
+            val folder = File(instrumentation.targetContext.getExternalFilesDir(null), "policy-evidence").apply { mkdirs() }
+            val bitmap = instrumentation.uiAutomation.takeScreenshot()
+            assertNotNull(bitmap)
+            File(folder, "pago-unico-inicio.png").outputStream().use {
+                bitmap.compress(Bitmap.CompressFormat.PNG, 100, it)
             }
-            showPaywall(scenario)
-            assertEquals("true", evaluate(scenario, "(()=>{const r=document.querySelector('#closePaywall').getBoundingClientRect();return r.top>=0 && r.bottom<=innerHeight})()"))
-            saveScreenshot(scenario, "paywall-landscape.png")
-            closeAndVerify(scenario, "closePaywall")
+            bitmap.recycle()
+        }
+    }
+    @Test fun backExitsFromHome() {
+        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+            waitForLaunch(scenario)
+            pressBackUnconditionally()
+            val deadline = SystemClock.uptimeMillis() + 10000
+            while (scenario.state != Lifecycle.State.DESTROYED && SystemClock.uptimeMillis() < deadline)
+                SystemClock.sleep(100)
+            assertEquals(Lifecycle.State.DESTROYED, scenario.state)
         }
     }
 }
