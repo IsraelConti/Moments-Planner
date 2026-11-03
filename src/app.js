@@ -31,7 +31,7 @@ const todayIso=()=>{const d=new Date();return [d.getFullYear(),String(d.getMonth
 const daysBetween=(a,b)=>Math.ceil((new Date(b+"T12:00:00")-new Date(a+"T12:00:00"))/86400000);
 const normalizeText=v=>String(v||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().trim();
 const android=()=>window.MomentsAndroid;
-let demoMode=false,subscriptionActive=false;
+const demoMode=false;
 const persist=(key,value)=>{if(!demoMode)localStorage.setItem(key,value);};
 const save=()=>{projects=projects.map(normalizeProject);persist(KEY,JSON.stringify(projects));renderAll();};
 function toast(msg){const t=$("#toast");t.textContent=msg;t.classList.add("show");setTimeout(()=>t.classList.remove("show"),2600);}
@@ -46,87 +46,8 @@ function downloadBlob(content,type,name){
   const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),500);
 }
 
-let offerAvailable=false;
-window.onMomentsOffer=(price,hasTrial)=>{
-  if(!price){window.onMomentsOfferUnavailable("El plan no está disponible en Google Play. Inténtalo más tarde.");return;}
-  offerAvailable=true;
-  $("#planHeadline").textContent=hasTrial?"3 días gratis":"Suscripción mensual";
-  $("#subscriptionPrice").textContent=hasTrial?"Después, "+price+" al mes":price+" al mes";
-  $("#subscriptionTerms").textContent=hasTrial?"Después se renueva automáticamente cada mes. Cancela durante la prueba desde Google Play y no se realizará ningún cobro.":"Se renueva automáticamente cada mes y puedes cancelar desde Google Play.";
-  $("#subscribeBtn").textContent=hasTrial?"Probar 3 días gratis":"Suscribirme por "+price+" al mes";
-  $("#subscribeBtn").disabled=false;
-  $("#paywallStatus").textContent=hasTrial?"Google Play ofrece una prueba gratuita de 3 días y después "+price+" al mes.":"Precio de Google Play: "+price+" al mes.";
-};
-window.onMomentsOfferUnavailable=message=>{
-  offerAvailable=false;
-  $("#planHeadline").textContent="Suscripción no disponible";
-  $("#subscriptionPrice").textContent="No hay precio disponible";
-  $("#subscriptionTerms").textContent="No se puede iniciar una compra hasta que Google Play devuelva un precio y unas condiciones válidas.";
-  $("#subscribeBtn").disabled=true;
-  $("#paywallStatus").textContent=message||"No se pudo consultar el producto en Google Play.";
-};
-window.onMomentsSubscription=(active,price,message)=>{
-  subscriptionActive=!!active;
-  // Subscription status must not overwrite the exact Play offer, trial, or localized price.
-  // Only the product-details callback can set the purchase offer displayed to users.
-  $("#subscriptionStatus").textContent=active?"Suscripción mensual activa":(message||"Suscripción necesaria");
-  $("#paywall").classList.toggle("hidden",!!active||demoMode);
-  $("#subscribeBtn").disabled=!offerAvailable;
-  if(!active&&!price)$("#paywallStatus").textContent=message||"Se necesita una suscripción activa para usar Moments Planner.";
-};
-window.onMomentsPurchaseProgress=message=>{
-  $("#subscribeBtn").disabled=true;
-  $("#paywallStatus").textContent=message;
-};
-window.onMomentsPurchaseError=message=>{
-  const text=message||"No se pudo completar la operación con Google Play";
-  $("#paywallStatus").textContent=text;
-  $("#subscribeBtn").disabled=!offerAvailable;
-  toast(text);
-};
+// Pago único de Google Play: la compra de la app da acceso permanente a todas las funciones.
 window.onMomentsFileSaved=(success,name)=>toast(success?"Archivo guardado: "+name:"No se pudo guardar el archivo");
-$("#subscribeBtn").onclick=()=>{
-  if($("#subscribeBtn").disabled)return;
-  if(android()?.subscribeMonthly)android().subscribeMonthly();
-  else {$("#paywallStatus").textContent="La compra solo está disponible en la aplicación Android de Google Play.";toast("Instala Moments Planner desde Google Play para suscribirte");}
-};
-$("#restorePurchase").onclick=()=>{
-  if(android()?.restorePurchases)android().restorePurchases();
-  else {$("#paywallStatus").textContent="La restauración de compras solo está disponible en Android.";toast("Abre Moments Planner en Android para restaurar la compra");}
-};
-const exitApp=()=>{if(android()?.exitApp){android().exitApp();return;}toast("Para salir, utiliza Atrás o cierra esta pestaña");};
-$("#closePaywall").onclick=exitApp;
-$("#exitPaywall").onclick=exitApp;
-$("#manageSubscription").onclick=()=>android()?.manageSubscription?android().manageSubscription():toast("Gestiona la suscripción desde Google Play");
-
-// Full UI review access without payment, credentials or subscription.
- // Demo changes are in-memory only; the subscription and real saved projects remain separate.
-$("#openDemo").onclick=()=>{
-  if(demoMode)return;
-  demoMode=true;
-  projects=[normalizeProject({id:"moments-demo-review",name:"Boda de demostración",type:"wedding",
-    date:"2027-06-12",time:"17:30",couple:"Ana y Luis",venue:"Salón de demostración",
-    city:"Sevilla",guestTarget:80,budget:14000,notes:"Datos ficticios para explorar Moments Planner."})];
-  currentId="moments-demo-review";historyStack=[];editingProjectId=null;
-  $("#demoBanner").classList.remove("hidden");
-  $("#paywall").classList.add("hidden");
-  go("dashboard",false);
-};
-$("#exitDemo").onclick=()=>{
-  if(!demoMode)return;
-  demoMode=false;
-  const stored=localStorage.getItem(KEY)?readJson(KEY,[]):readJson(OLD_KEY,[]);
-  projects=(Array.isArray(stored)?stored:[]).map(normalizeProject);
-  const saved=localStorage.getItem(SETTINGS)?readJson(SETTINGS,defaultSettings):readJson(OLD_SETTINGS,defaultSettings);
-  settings={...defaultSettings,...(saved&&typeof saved==="object"&&!Array.isArray(saved)?saved:{})};
-  currentId=localStorage.getItem("moments.current")||"";
-  historyStack=[];editingProjectId=null;
-  $("#demoBanner").classList.add("hidden");
-  applySettings();go("home",false);
-  $("#paywall").classList.toggle("hidden",subscriptionActive);
-  if(android()?.checkSubscription)android().checkSubscription();
-};
-
 
 function go(screen,push=true){
   if(!["home","projectForm","settings","help"].includes(screen)&&!current()){toast("Primero abre o crea un proyecto");screen="home";}
@@ -150,7 +71,7 @@ function back(){const previous=historyStack.pop();go(previous&&titles[previous]?
 $("#backBtn").addEventListener("click",back);
 document.querySelectorAll("[data-back]").forEach(b=>b.addEventListener("click",back));
 document.querySelectorAll("[data-go]").forEach(b=>b.addEventListener("click",()=>go(b.dataset.go)));
-window.onAndroidBack=()=>{if(!$("#paywall").classList.contains("hidden")||currentScreen==="home")return false;back();return true;};
+window.onAndroidBack=()=>{if(currentScreen==="home")return false;back();return true;};
 
 document.querySelectorAll("[data-new-project]").forEach(b=>b.addEventListener("click",()=>{
   const type=b.dataset.newProject;
@@ -510,8 +431,3 @@ function renderAll(){
 }
 
 applySettings();save();go("home",false);
-$("#paywall").classList.remove("hidden");
-window.onMomentsOfferUnavailable("Comprueba la suscripción en Google Play.");
-if(android()?.checkSubscription)android().checkSubscription();
-else $("#paywallStatus").textContent="La suscripción se puede comprobar al abrir esta aplicación desde Google Play.";
-

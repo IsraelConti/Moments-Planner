@@ -6,109 +6,16 @@ const browser = await chromium.launch({headless:true,args:['--no-sandbox']});
 const page = await browser.newPage({viewport:{width:390,height:844}});
 const errors=[];
 page.on('pageerror',e=>errors.push(e.message));
-await page.addInitScript(()=>{
-  window.MomentsAndroid={
-    checkSubscription(){setTimeout(()=>window.onMomentsSubscription?.(true,'','Suscripción de prueba'),50)},
-    subscribeMonthly(){},restorePurchases(){},
-    exitApp(){},copyShareText(){},
-  };
-});
+await page.addInitScript(()=>{window.MomentsAndroid={exitApp(){},copyShareText(){}};});
 await page.goto(pathToFileURL(resolve('dist/index.html')).href);
-await page.waitForFunction(()=>typeof window.onMomentsSubscription==='function',{timeout:10000});
-await page.evaluate(()=>window.onMomentsSubscription(true,'','Suscripción de prueba'));
-await page.waitForTimeout(500);
+await page.waitForFunction(()=>document.querySelector('[data-screen="home"]')?.classList.contains('active'),{timeout:10000});
+await page.waitForTimeout(250);
 if(errors.length)throw Error('Errores JS al arrancar: '+errors.join('; '));
-if(await page.locator('#paywall').isVisible())throw Error('La suscripción simulada no desbloqueó la interfaz');
-// A review must access all feature screens without a payment method or account.
-await page.evaluate(()=>window.onMomentsSubscription(false,'','Subscription required'));
-const savedBeforeDemo=await page.evaluate(()=>({
-  projects:localStorage.getItem('moments.planner.v2'),
-  current:localStorage.getItem('moments.current'),
-  settings:localStorage.getItem('moments.settings.v2')
-}));
-await page.locator('#openDemo').click();
-if(await page.locator('#paywall').isVisible())throw Error('Review demo is still blocked by subscription');
-if(!(await page.locator('#demoBanner').isVisible()))throw Error('Session-only demonstration warning missing');
-await page.evaluate(()=>window.onMomentsSubscription(false,'','Billing response arrived after demo started'));
-if(await page.locator('#paywall').isVisible())throw Error('Billing refresh interrupts authorized demo');
-await page.locator('[data-go="tasks"]').first().click();
-if(await page.locator('.screen.active').getAttribute('data-screen')!=='tasks')throw Error('Review demo cannot open tasks');
-// Keep the mocked billing bridge from unlocking the paywall asynchronously after demo exit.
-await page.evaluate(()=>{window.MomentsAndroid.checkSubscription=()=>{};});
-await page.locator('#exitDemo').click();
-if(!(await page.locator('#paywall').isVisible()))throw Error('Review demo exit failed to restore paywall');
-if(await page.locator('#demoBanner').isVisible())throw Error('Review banner not removed');
-const savedAfterDemo=await page.evaluate(()=>({
-  projects:localStorage.getItem('moments.planner.v2'),
-  current:localStorage.getItem('moments.current'),
-  settings:localStorage.getItem('moments.settings.v2')
-}));
-if(JSON.stringify(savedAfterDemo)!==JSON.stringify(savedBeforeDemo))throw Error('Review mode changed subscriber local storage');
-// Paywall buttons must be responsive and must call the native billing bridge.
-await page.evaluate(()=>window.onMomentsSubscription(false,'','Suscripción necesaria'));
-if(!(await page.locator('#paywall').isVisible()))throw Error('El paywall no aparece sin suscripción');
-await page.evaluate(()=>{window.__billingCalls=[];window.MomentsAndroid.subscribeMonthly=()=>window.__billingCalls.push('subscribe');window.MomentsAndroid.restorePurchases=()=>window.__billingCalls.push('restore');window.MomentsAndroid.exitApp=()=>window.__billingCalls.push('exit');});
-const paywallButtons=await page.locator('#paywall button').evaluateAll(els=>els.map(e=>({id:e.id,text:e.textContent.trim()})));
-console.log('Paywall buttons:',JSON.stringify(paywallButtons));
-// Check every paywall action using the real DOM handlers and a mocked native bridge.
-await page.evaluate(()=>window.onMomentsOffer('4,99 €',true));
-await page.evaluate(()=>window.onMomentsSubscription(false,'US$9.99','Suscripción pendiente'));
-if(!(await page.locator('#planHeadline').innerText()).includes('3 días'))throw Error('Estado de suscripción eliminó la prueba ofrecida por Play');
-if(!(await page.locator('#subscriptionPrice').innerText()).includes('4,99 €'))throw Error('Estado de suscripción reemplazó el precio localizado de Play');
-if((await page.locator('#subscriptionPrice').innerText()).includes('US$9.99'))throw Error('Moneda de estado reemplazó la oferta de Play');
-await page.evaluate(()=>window.onMomentsOffer('4,99 €',false));
-if(await page.locator('#subscribeBtn').isDisabled())throw Error('Suscribirme no se habilita cuando existe una oferta');
-await page.locator('#subscribeBtn').click();
-await page.locator('#restorePurchase').click();
-await page.locator('#closePaywall').click();
-await page.locator('#exitPaywall').click();
-const billingCalls=await page.evaluate(()=>window.__billingCalls);
-if(JSON.stringify(billingCalls)!==JSON.stringify(['subscribe','restore','exit','exit']))throw Error('Suscripción/restauración no invocan el puente Android: '+JSON.stringify(billingCalls));
-await page.evaluate(()=>window.onMomentsOfferUnavailable('Sin oferta'));
-if(!(await page.locator('#subscribeBtn').isDisabled()))throw Error('El botón de compra sigue activo sin oferta');
-// Regression: subscription price must reflect the exact localized Play offer, never the project currency.
-for(const localizedPrice of ['4,99 €','US$5.49','£4.49','MX$109.00']){
-  await page.evaluate(price=>window.onMomentsOffer(price,false),localizedPrice);
-  const shown=await page.locator('#subscriptionPrice').innerText();
-  const button=await page.locator('#subscribeBtn').innerText();
-  const status=await page.locator('#paywallStatus').innerText();
-  if(!shown.includes(localizedPrice)||!button.includes(localizedPrice)||!status.includes(localizedPrice))throw Error('Precio de Play no coincide en pantalla para '+localizedPrice);
-  if(await page.locator('#subscribeBtn').isDisabled())throw Error('Compra deshabilitada para '+localizedPrice);
-}
-await page.evaluate(()=>window.onMomentsOffer('4,99 €',true));
-if(!(await page.locator('#subscriptionPrice').innerText()).includes('4,99 €'))throw Error('Precio posterior a prueba no coincide con Play');
-if(!(await page.locator('#planHeadline').innerText()).includes('3 días'))throw Error('Prueba de tres días no visible cuando Play la ofrece');
-await page.evaluate(()=>window.onMomentsOffer('4,99 €',false));
-if((await page.locator('#planHeadline').innerText()).includes('gratis'))throw Error('La prueba gratuita se muestra sin oferta de Play');
-// A slow purchase must show feedback, prevent duplicate taps, and recover after cancellation/error.
-await page.evaluate(()=>window.onMomentsPurchaseProgress('Abriendo Google Play…'));
-if(!(await page.locator('#subscribeBtn').isDisabled()))throw Error('Se permite iniciar otra compra mientras se abre Play');
-await page.evaluate(()=>window.onMomentsPurchaseError('Compra cancelada. No se ha realizado ningún cobro.'));
-if(await page.locator('#subscribeBtn').isDisabled())throw Error('No se puede reintentar tras cancelar la compra');
-await page.evaluate(()=>window.onMomentsOfferUnavailable('Sin conexión'));
-await page.evaluate(()=>window.onMomentsPurchaseError('Error de conexión'));
-if(!(await page.locator('#subscribeBtn').isDisabled()))throw Error('Un error ha habilitado una compra sin precio válido');
-await page.evaluate(()=>window.onMomentsOffer('US$5.49',true));
+if(await page.locator('#paywall').count())throw Error('El pago único no puede mostrar un muro de suscripción');
+if(await page.locator('#subscribeBtn').count())throw Error('No se debe poder contratar una cuota mensual');
+if(await page.evaluate(()=>window.onAndroidBack())!==false)throw Error('Atrás debe permitir salir desde Inicio');
 await mkdir('policy-web-evidence',{recursive:true});
-await page.screenshot({path:'policy-web-evidence/paywall-portrait.png'});
-// Short screens previously centered a tall card above the viewport, hiding the close button.
-for(const viewport of [{width:844,height:390},{width:320,height:320}]){
-  await page.setViewportSize(viewport);
-  await page.locator('#paywall').evaluate(el=>el.scrollTop=0);
-  const reachable=await page.locator('#closePaywall').evaluate(el=>{
-    const r=el.getBoundingClientRect();
-    return r.top>=0&&r.left>=0&&r.bottom<=innerHeight&&r.right<=innerWidth&&document.elementFromPoint(r.x+r.width/2,r.y+r.height/2)===el;
-  });
-  if(!reachable)throw Error('Salir está oculto en '+JSON.stringify(viewport));
-  await page.locator('#closePaywall').click();
-}
-await page.screenshot({path:'policy-web-evidence/paywall-small-screen.png'});
-await page.setViewportSize({width:390,height:844});
-// A verification failure must preserve an already unlocked session.
-await page.evaluate(()=>window.onMomentsSubscription(true,'','Suscripción de prueba'));
-await page.evaluate(()=>window.onMomentsPurchaseError('No se pudo consultar Google Play'));
-if(await page.locator('#paywall').isVisible())throw Error('Un fallo de red bloquea una suscripción ya verificada');
-if(await page.locator('#paywall').isVisible())throw Error('El paywall no se oculta al restaurar una suscripción válida');
+await page.screenshot({path:'policy-web-evidence/pago-unico-inicio.png'});
 // Verify that a real project can be created and becomes the active dashboard.
 await page.locator('[data-new-project="wedding"]').first().click();
 if(await page.locator('.screen.active').getAttribute('data-screen')!=='projectForm')throw Error('Crear boda no abre el formulario');
@@ -118,7 +25,6 @@ await page.locator('#projectForm button[type="submit"], #projectForm button:not(
 if(await page.locator('.screen.active').getAttribute('data-screen')!=='dashboard')throw Error('Guardar proyecto no abre el panel');
 if(!(await page.evaluate(()=>localStorage.getItem('moments.current'))))throw Error('El proyecto no se guardó como activo');
 await page.reload();
-await page.evaluate(()=>window.onMomentsSubscription(true,'','Suscripción de prueba'));
 await page.locator('[data-open]').first().click();
 if(await page.locator('.screen.active').getAttribute('data-screen')!=='dashboard')throw Error('El proyecto no persiste tras recargar');
 // Editing an existing project must retain its identifier and collections.
@@ -209,7 +115,6 @@ await page.locator('#settingsForm [name="currency"]').selectOption('GBP');
 await page.locator('#settingsForm [name="language"]').selectOption('en');
 await page.locator('#settingsForm button').last().click();
 await page.reload();
-await page.evaluate(()=>window.onMomentsSubscription(true,'','Suscripción de prueba'));
 const prefs=await page.evaluate(()=>JSON.parse(localStorage.getItem('moments.settings.v2')||'{}'));
 if(prefs.currency!=='GBP'||prefs.language!=='en')throw Error('La configuración no persiste al reiniciar');
 // Verify sharing and export controls exist and are enabled.
@@ -260,7 +165,6 @@ await page.evaluate(()=>{
   localStorage.setItem('moments.settings.v2','{}');
 });
 await page.reload();
-await page.evaluate(()=>window.onMomentsSubscription(true,'','Suscripción de prueba'));
 if(await page.locator('[data-open]').count()!==0)throw Error('El estado de prueba no se vació antes de restaurar');
 page.once('dialog',dialog=>dialog.accept());
 await page.locator('#restoreData').setInputFiles({name:'copia-moments.json',mimeType:'application/json',buffer:Buffer.from(backupText,'utf8')});
@@ -285,8 +189,7 @@ for(const screen of destinations){
 }
 if(visited.length<5)throw Error('Cobertura insuficiente: '+visited.length+' pantallas');
 await page.locator('[data-go="settings"]').first().click();
-await page.evaluate(()=>window.onMomentsSubscription(false,'','Suscripción necesaria'));
-if(await page.evaluate(()=>window.onAndroidBack())!==false)throw Error('Atrás no permite salir cuando aparece el paywall sobre otra pantalla');
+if(await page.evaluate(()=>window.onAndroidBack())!==true)throw Error('Atrás no vuelve desde Configuración');
 console.log(JSON.stringify({result:'PASS',screenCount:visited.length,screens:visited,errors},null,2));
 await browser.close();
 
