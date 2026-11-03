@@ -1,20 +1,18 @@
-import { readFileSync } from 'node:fs';
+import {readFileSync} from 'node:fs';
 import assert from 'node:assert/strict';
 const app=readFileSync('src/app.js','utf8');
 const html=readFileSync('src/index.html','utf8');
-const enhancer=readFileSync('scripts/enhance-moments.mjs','utf8');
 const native=readFileSync('android/app/src/main/java/com/momentsplanner/events/MainActivity.kt','utf8');
-for(const key of ['function renderGuests(){','function renderTasks(){','function normalizeProject(p)']) assert.ok(app.includes(key),'Missing app function: '+key);
-for(const id of ['guestForm','guestList','guestSummary']) assert.ok(html.includes('id="'+id+'"'),'Missing UI element '+id);
-for(const anchor of ['collections.guests=collections.guests.map(g=>({...g,seats:Number(g.seats||1),tableId:g.tableId||""}));','if(key==="guests")item.seats=Math.max(1,Number(item.seats||1));','addCollection($("#guestForm"),"guests");','function renderGuests(){','\nfunction renderTasks(){']) assert.ok(app.includes(anchor),'Enhancement anchor missing: '+anchor);
-assert.ok(enhancer.includes('Moments Expert full RSVP'),'Missing enhancement script');
-assert.ok(html.includes('id="closePaywall"'),'Missing visible paywall close control');
-assert.ok(app.includes('$("#closePaywall").onclick=exitApp'),'Paywall close control is not wired');
-assert.ok(native.includes('@JavascriptInterface fun exitApp()=runOnUiThread{finish()}'),'Android bridge does not close the paywall screen');
-assert.ok(native.includes('window.onMomentsOfferUnavailable'),'Billing errors must not invent a localized price');
-assert.ok(!native.includes('formattedPrice?:"4,99 €"'),'Billing must not fall back to a hard-coded euro price');
-assert.ok(html.includes('id="openDemo"') && html.includes('id="demoBanner"') && html.includes('id="exitDemo"'), 'Review demo must be visible and exitable');
-assert.ok(app.includes('if(!demoMode)localStorage.setItem(key,value)'), 'Demo must not persist personal projects');
-assert.ok(app.includes('$("#paywall").classList.toggle("hidden",!!active||demoMode)'), 'Billing refresh must not interrupt demo');
-assert.ok(app.includes('$("#exitDemo").onclick'), 'Demo exit must be wired');
-console.log('Static regression checks passed');
+const gradle=readFileSync('android/app/build.gradle.kts','utf8');
+for(const key of ['function renderGuests(){','function renderTasks(){','function renderBudget(){','function normalizeProject(p)','function renderTables(){'])
+  assert.ok(app.includes(key),'Falta la función '+key);
+for(const id of ['guestForm','guestList','guestSummary','taskForm','vendorForm','projectForm'])
+  assert.ok(html.includes('id="'+id+'"'),'Falta el elemento '+id);
+assert.ok(!html.includes('id="paywall"') && !html.includes('id="subscribeBtn"'),'Quedan controles de suscripción');
+assert.ok(!html.includes('id="subscriptionStatus"'),'Queda un estado de cuota mensual');
+assert.ok(!app.includes('subscribeMonthly') && !app.includes('window.onMomentsSubscription'),'Quedan llamadas de suscripción en JavaScript');
+assert.ok(!native.includes('BillingClient') && !native.includes('querySubscription'),'Quedan consultas de facturación en Android');
+assert.ok(!gradle.includes('billing-ktx'),'No debe empaquetarse Google Play Billing para pago único');
+assert.ok(gradle.includes('versionCode = 9') && gradle.includes('versionName = "1.3.4"'),'Versión incorrecta');
+assert.ok(app.includes('window.onAndroidBack=') && app.includes('window.onMomentsFileSaved'),'Deben conservarse navegación y archivos');
+console.log('Auditoría de pago único y regresión: correcta');
